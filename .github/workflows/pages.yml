@@ -15,7 +15,9 @@ jobs:
         with:
           node-version: "22"
       - name: Check mobile controls
-        run: node test-mobile.cjs
+        run: |
+          node test-mobile.cjs
+          node test-highlights.cjs
       - name: Build and validate website
         run: |
           python3 tools/build_release.py

@@ -95,7 +95,7 @@ function storyHistory(){
   const history=S.story?.history||[];return `${seasonCard(H.storySeason(S))}${seasonCard(H.storySeasonTwo(S),true)}${seasonCard(H.storySeasonThree(S),3)}${seasonCard(H.storySeasonFour(S),4)}${seasonCard(H.storySeasonFive(S),5)}${seasonCard(H.storySeasonSix(S),6)}<div class="section-title"><h2>球队故事 · 六阶段成长档案</h2><small>${history.length} / ${H.storyTotal} 页 · 已发生的选择</small></div><div class="story-archive">${history.length?history.map(h=>`<details><summary><small>第 ${h.week} 周</small><b>${esc(h.title)}</b><span>${esc(h.choice)}</span></summary>${(h.paragraphs||[]).map(t=>`<p>${esc(t)}</p>`).join('')}<p><b>你的回应：</b>${esc(h.text)}</p>${h.goalResult?`<p class="story-archive-goal">本周约定：${esc(h.goalResult.label)} · 实际 ${h.goalResult.value} · ${h.goalResult.met?'已完成':'继续练习'}</p>`:''}<small>${h.effects.map(esc).join(' · ')}</small></details>`).join(''):'<p class="empty">入队后，回到生涯页读第一封球队故事。这里会保存你的选择与回应。</p>'}</div>`;
 }
 function welcome() {
-  return `${topline('从这一球开始', '从这块球场，开始你的生涯。', '15 岁，一个篮球，一段由你决定的青春。', '校园篇 · 江岚中学')}<section class="hero"><div class="hero-copy"><div class="eyebrow">NEXT STOP, GREATNESS</div><h1>现在是少年，<br>下一站，<em>巨星。</em></h1><p>这里没有天生的主角。<br>练出自己的本领，亲手打出下一次机会。<br>你的篮球人生，从江岚中学的选拔赛开始。</p><div class="buttons">${btn(S ? '继续我的生涯' : '开启篮球人生', S ? 'continue' : 'create')}${S ? '<button class="text-btn" data-action="create">创建新少年</button>' : '<button class="text-btn" data-action="practice">球场练习 ↗</button>'}</div><div class="hero-note">${icon('clock')}练出自己的本领，亲手争取上场机会</div></div><div class="hero-art"><span class="hero-number">你的第一季</span>${courtArt()}<div class="court-caption"><i></i>江岚中学 · 露天篮球场 · 17:30</div></div></section><div class="section-title"><h2>你的第一章</h2><small>不用一步登天，先把这一球打好。</small></div><div class="chapter-grid">${[['jersey', '01', '成为篮球少年', '姓名、号码、起步类型。<br>每种起点，都有自己的可能。'], ['flag', '02', '走进江岚中学', '遇见教练，也遇见队友。<br>先学会一起打球。'], ['ball', '03', '连续打完这场球', '进攻、退防、篮板与反击。<br>投篮、挡拆、传球、抢板。'], ['target', '04', '培养你的招牌能力', '比赛获得训练点，专项培养。<br>争取角色，练出自己的打法。']].map(([ic, num, title, text]) => `<article class="card chapter"><div class="chapter-top">${icon(ic)}<span>${num}</span></div><h3>${title}</h3><p>${text}</p></article>`).join('')}</div><div class="promise">${icon('shield')}<p><b>投丢一球，不代表失去机会。</b><br>教练看见的，还有你的判断、配合和勇气。</p><span class="label">从校队到职业赛场，靠你自己打出来。</span></div>`;
+  return `${topline('从这一球开始', '从这块球场，开始你的生涯。', '15 岁，一个篮球，一段由你决定的青春。', '校园篇 · 江岚中学')}<section class="hero"><div class="hero-copy"><div class="eyebrow">NEXT STOP, GREATNESS</div><h1>现在是少年，<br>下一站，<em>巨星。</em></h1><p>这里没有天生的主角。<br>练出自己的本领，亲手打出下一次机会。<br>你的篮球人生，从江岚中学的选拔赛开始。</p><div class="buttons">${btn(S ? '继续我的生涯' : '开启篮球人生', S ? 'continue' : 'create')}${S ? '<button class="text-btn" data-action="create">创建新少年</button>' : '<button class="text-btn" data-action="practice">球场练习 ↗</button>'}</div><div class="hero-note">${icon('clock')}练出自己的本领，亲手争取上场机会</div></div><div class="hero-art"><span class="hero-number">你的第一季</span>${courtArt()}<div class="court-caption"><i></i>江岚中学 · 露天篮球场 · 17:30</div></div></section><div class="section-title"><h2>你的第一章</h2><small>不用一步登天，先把这一球打好。</small></div><div class="chapter-grid">${[['jersey', '01', '成为篮球少年', '姓名、号码、起步类型。<br>每种起点，都有自己的可能。'], ['flag', '02', '走进江岚中学', '遇见教练，也遇见队友。<br>先学会一起打球。'], ['ball', '03', '关键时刻，亲手上场', '跟着战报，看比赛起伏。<br>快攻、投篮、抢断，机会来了就上。'], ['target', '04', '培养你的招牌能力', '比赛获得训练点，专项培养。<br>争取角色，练出自己的打法。']].map(([ic, num, title, text]) => `<article class="card chapter"><div class="chapter-top">${icon(ic)}<span>${num}</span></div><h3>${title}</h3><p>${text}</p></article>`).join('')}</div><div class="promise">${icon('shield')}<p><b>投丢一球，不代表失去机会。</b><br>教练看见的，还有你的判断、配合和勇气。</p><span class="label">从校队到职业赛场，靠你自己打出来。</span></div>`;
 }
 function attributes(a, extra = '') { return `<div class="attributes ${extra}">${Object.entries(H.attrs).map(([k, label]) => `<div class="attribute"><span>${label}</span><div class="bar"><i style="width:${a[k]}%"></i></div><b>${a[k]}</b></div>`).join('')}</div>`; }
 function preview() {
@@ -122,6 +122,7 @@ function tacticalCourt() {
 }
 function statCells(st) { return [['points', '得分'], ['assists', '助攻'], ['rebounds', '篮板'], ['steals', '抢断'], ['blocks', '盖帽']].map(([k, t]) => `<div><b>${st[k]}</b><span>${t}</span></div>`).join(''); }
 function match() {
+  if(S.match.highlights)return highlightMatchView();
   if(S.match.league)return careerMatchView();
   const m = S.match, sc = H.scene(S), f = m.feedback, times = m.kind === 'tryout' ? ['04:12', '02:46', '01:21', '00:09'] : [m.growthMode&&m.minutes<4?String(m.minutes).padStart(2,'0')+':00':'04:00', '02:46', '01:21', '00:09'];
   const live=m.play?.model?.run?m.play.model:null,displayScore=live?[m.score[0]+live.teamPoints,m.score[1]+live.opponentPoints]:m.score,displayStats=live?Object.fromEntries(Object.entries(m.stats).map(([k,v])=>[k,v+live.stats[k]])):m.stats;
@@ -188,6 +189,7 @@ function processAction(el) {
   if (a === 'export') { downloadSave(); toast('生涯备份已开始下载。'); return; }
   if (a === 'import') { $('#import-file').click(); return; }
   if (!S) return;
+  if(a==='flow-next'||a==='flow-skip'||a==='flow-quick'){const done=a==='flow-next'?H.advanceHighlights(S):a==='flow-skip'?H.skipHighlight(S):H.simulateHighlights(S);if(done){save();render(a==='flow-next');}return;}
   if(processCareerAction(el))return;
   if(a==='migrate'){if(S.stage==='match'){toast('请先完成当前比赛，再接入成长版。');return;}modal('接入训练成长版？','保留旧版原始存档和全部历史。新版本提供 6 点训练资源，取消固定对白门槛；先从校队训练和比赛继续，也可以开启完整赛季。',()=>{const next=H.migrate(S);if(next){downloadSave();S=next;save();view='career';render();}},'备份并接入');return;}
   if(a==='run-plan'){if(H.Growth.runPlan(S)){save();render(false);toast(S.lastTraining);}else toast(H.Growth.preview(S,S.growth.plan[S.growth.used]||'rest')?.reason||'本周安排已完成');return;}
@@ -198,12 +200,12 @@ function processAction(el) {
   let changed = false, scroll = true;
   if (a === 'enroll') { changed=H.enroll(S,el.dataset.route); scroll=false;if(changed)toast('已保存参赛手续，本周备战，下周确认正式参赛。'); }
   if (a === 'intro') changed = H.introduction(S, Number(el.dataset.index));
-  if (a === 'begin') changed = H.begin(S);
+  if (a === 'begin') changed = H.beginHighlights(S);
   if (a === 'choose') { const pending=H.startPlay(S,Number(el.dataset.index)); if(pending){save();render(false);launchCourt(pending);}return; }
   if (a === 'next') changed = H.next(S);
   if (a === 'home') {const opportunity=S.lastReport?.league&&!S.lastReport.league.official&&S.lastReport.league.kind!=='assessment';changed=H.goHome(S);if(changed&&opportunity)view='opportunities';}
   if (a === 'train') { changed = H.train(S, el.dataset.value); scroll = false; if (changed) toast(S.lastTraining); }
-  if (a === 'weekly') {changed=H.begin(S,'weekly');if(changed&&S.career){save();render(false);const p=H.startPlay(S,0);if(p){save();launchCourt(p);}return;}}
+  if (a === 'weekly') changed=H.beginHighlights(S,'weekly');
   if (changed) { save(); render(scroll); if(a==='enroll')$('.league-panel')?.scrollIntoView({block:'start',behavior:'instant'}); if(a==='train'&&H.storyScene(S))$('#story-panel')?.scrollIntoView({block:'start',behavior:'instant'}); if (innerWidth <= 880 && ['choose', 'next'].includes(a) && S.stage === 'match') $('.decision-panel').scrollIntoView({block:'start', behavior:'instant'}); }
 }
 

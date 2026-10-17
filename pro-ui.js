@@ -11,7 +11,7 @@ function processProAction(el){const a=el.dataset.action,P=H.League.Path;if(a==='
  if(a==='draft-register'){modal('报名本届 NBA 选秀？','报名不会解除现有合同，也不保证被选中。建议参加一次联合试训，检查预测与位置风险后再开始选秀。',()=>{if(P.register(S)){save();render();}},'确认报名');return true;}
  if(a==='draft-withdraw'){if(P.withdraw(S)){save();render();}return true;}
  if(a==='draft-run'){modal('开始本届选秀？','本届名单、球队顺序和你的实操考核已固定，结果只结算一次。被选中后仍需决定签约；落选可继续原有生涯。',()=>{if(P.runDraft(S)){save();render();}},'开始选秀');return true;}
- if(a==='draft-combine'||a==='nba-camp'){const kind=a==='draft-combine'?'combine':'camp';if(H.beginCareer(S,kind,el.dataset.offer)){save();view='career';render(false);const p=H.startPlay(S,0);if(p){save();launchCourt(p);}}else toast('当前尚不能参加，请检查窗口、报名和球队邀请。');return true;}
+ if(a==='draft-combine'||a==='nba-camp'){const kind=a==='draft-combine'?'combine':'camp';if(H.beginHighlights(S,kind,el.dataset.offer)){save();view='career';render(false);}else toast('当前尚不能参加，请检查窗口、报名和球队邀请。');return true;}
  if(a==='decline-offer'){const o=S.career.offers.find(o=>o.id===el.dataset.offer);if(o&&!S.career.pending&&!['testing','signed'].includes(o.status)){o.status='declined';save();render();}return true;}
  if(a==='retire-player'){if(S.player.age<30||S.career.phase!=='offseason')return true;const preview=H.League.advance(S,false,true,true);modal('结束这段球员生涯？',`将完成本季剩余 ${preview.weeks} 周日历，到账薪酬 ${moneyText(preview.money)}，不额外执行训练。记录球队履历、荣誉、数据、收入与最终能力；退役后仍可自由练习。`,()=>{H.League.advance(S,false,true,false);if(P.retire(S)){save();view='career';render();}},'结算并退役');return true;}
  return false;}

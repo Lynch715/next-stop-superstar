@@ -351,6 +351,12 @@
     s.gameClock=resume?Math.max(.1,duration-s.t):duration;
     [...s.mates,...s.defenders].forEach(a=>a.maxY=965);
     if(s.flow==='defense'){s.run.side='away';if(!resume){s.p.y+=580;[...s.mates,...s.defenders].forEach(a=>{a.y=Math.min(965,a.y+580);a.gy=Math.min(965,a.gy+580);});}s.run.cameraY=clamp((s.p.y+s.defenders[0].y)/2-285,0,FULL_H-H);}
+    else if(s.config.fastbreak&&s.flow==='drive'&&!resume){
+      s.p.x=450;s.p.y=640;s.run.fastUntil=8;
+      s.mates.forEach((p,i)=>{p.x=[190,710,510][i];p.y=[500,565,735][i];p.gx=p.x;p.gy=p.y;});
+      s.defenders.forEach((p,i)=>{p.x=[420,250,675,520][i];p.y=[405,480,725,810][i];p.gx=p.x;p.gy=p.y;});
+      s.run.cameraY=clamp(s.p.y-300,0,FULL_H-H);
+    }
   }
   function defenseSpot(s){const p=s.defenders[s.run?.carrier??0],g=s.run?awayHoop:hoop,d=dist(p,g)||1;return {x:clamp(p.x+(g.x-p.x)/d*48,90,810),y:clamp(p.y+(g.y-p.y)/d*48,153,s.run?965:478)};}
   function resetPlay(s){
@@ -387,8 +393,8 @@
     if(s.config.noDraw&&s.run.baseScore[0]+s.teamPoints===s.run.baseScore[1]+s.opponentPoints){s.run.overtimes=(s.run.overtimes||0)+1;s.run.duration+=300;s.gameClock=300;record(s,'overtime','player',`双方战平，进入第${s.run.overtimes}个加时，继续五分钟攻防。`);const away=s.run.overtimes%2===1;claim(s,away?'away':'home',away?'opponent':'player',away?0:-1,'加时开始，球权已确定，继续比赛。',true);return true;}
     s.phase='done';s.p.z=0;s.charging=false;s.planted=false;s.target=null;s.run.tracking=false;
     const a=s.run.baseScore[0]+s.teamPoints,b=s.run.baseScore[1]+s.opponentPoints,decision=s.decisions.length?Math.round(s.decisions.reduce((a,b)=>a+b,0)/s.decisions.length):1,score=s.grades.length?Math.round(s.grades.reduce((a,b)=>a+b,0)/s.grades.length):0;
-    record(s,'whistle','player',`终场哨响，${a} : ${b}。本段比赛已结束。`);
-    s.outcome=outcome(s,a>=b,score,`终场 ${a} : ${b}。你得到 ${s.stats.points} 分、${s.stats.rebounds} 个篮板、${s.stats.assists} 次助攻、${s.stats.steals} 次抢断。`,{decision,continuous:true,liveMatch:true,duration:s.run.duration,...(s.config.noDraw?{noDraw:true,overtimes:s.run.overtimes||0}:{}),possessions:s.run.possessions,stats:copy(s.stats),teamPoints:s.teamPoints,opponentPoints:s.opponentPoints,events:copy(s.events),end:'whistle'});return true;
+    record(s,'whistle','player',s.config.highlight?`关键片段结束，${a} : ${b}。回到比赛战报。`:`终场哨响，${a} : ${b}。本段比赛已结束。`);
+    s.outcome=outcome(s,a>=b,score,`${s.config.highlight?'本段结束':'终场'} ${a} : ${b}。你得到 ${s.stats.points} 分、${s.stats.rebounds} 个篮板、${s.stats.assists} 次助攻、${s.stats.steals} 次抢断。`,{decision,continuous:true,liveMatch:true,duration:s.run.duration,...(s.config.noDraw?{noDraw:true,overtimes:s.run.overtimes||0}:{}),possessions:s.run.possessions,stats:copy(s.stats),teamPoints:s.teamPoints,opponentPoints:s.opponentPoints,events:copy(s.events),end:'whistle'});return true;
   }
   function awayThink(s){
     const r=s.run,b=s.defenders[r.carrier],guard=s.owner==='opponent'?defenseSpot(s):null;
