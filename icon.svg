@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs><linearGradient id="ball" x2="0" y2="1"><stop stop-color="#ffa74e"/><stop offset="1" stop-color="#e25b2b"/></linearGradient></defs>
+  <rect width="512" height="512" rx="110" fill="#173b33"/>
+  <circle cx="248" cy="280" r="154" fill="url(#ball)"/>
+  <g fill="none" stroke="#173b33" stroke-width="12"><path d="M94 280h308M248 126v308M139 172C314 210 314 350 139 388M357 172C182 210 182 350 357 388"/></g>
+  <path d="M118 137l48-25M100 169l26-14" fill="none" stroke="#fff3d6" stroke-width="9" stroke-linecap="round"/>
+  <polygon points="353.00,87.00 372.40,132.30 421.48,136.75 384.38,169.20 395.32,217.25 353.00,192.00 310.68,217.25 321.62,169.20 284.52,136.75 333.60,132.30" fill="#fff3d6" stroke="#173b33" stroke-width="10" stroke-linejoin="round"/>
+</svg>
