@@ -2,7 +2,7 @@
 """Check release integrity and GitHub project-subdirectory compatibility."""
 from pathlib import Path
 import hashlib,json,re,struct,zipfile
-ROOT=Path(__file__).resolve().parents[1];d=ROOT/'dist';m=json.loads((d/'release-manifest.json').read_text());assert m['version']=='0.21'
+ROOT=Path(__file__).resolve().parents[1];d=ROOT/'dist';m=json.loads((d/'release-manifest.json').read_text());assert m['version']=='0.23'
 actual={str(f.relative_to(d)) for f in d.rglob('*') if f.is_file()};assert actual==set(m['files'])|{'release-manifest.json'}
 for f,info in m['files'].items():
     content=(d/f).read_bytes();assert len(content)==info['bytes'] and hashlib.sha256(content).hexdigest()==info['sha256'],f

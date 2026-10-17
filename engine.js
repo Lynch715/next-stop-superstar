@@ -1,9 +1,9 @@
 /* 下一站 巨星 — pure, seeded career simulation; no DOM or network. */
 (function (root, factory) {
-  const api = factory(typeof module === 'object' && module.exports ? require('./story.js') : root.GreatnessStory, typeof module === 'object' && module.exports ? require('./growth.js') : root.HoopsGrowth, typeof module === 'object' && module.exports ? require('./career-league.js') : root.HoopsLeague);
+  const api = factory(typeof module === 'object' && module.exports ? require('./story.js') : root.GreatnessStory, typeof module === 'object' && module.exports ? require('./growth.js') : root.HoopsGrowth, typeof module === 'object' && module.exports ? require('./career-league.js') : root.HoopsLeague, typeof module === 'object' && module.exports ? require('./match-flavor.js') : root.HoopsMatchFlavor);
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.Hoops = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (Story, Growth, League) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (Story, Growth, League, Flavor) {
   'use strict';
   const VERSION = 1;
   const attrs = { shot: '投篮', drive: '突破', pass: '传球', handle: '控球', rebound: '篮板', defense: '防守', body: '对抗', stamina: '体能' };
@@ -96,7 +96,7 @@
     if(m.league&&m.league.manualSeconds===0)return null;
     if(m.play)return m.play.index===index?m.play:null;
     const a=scene(s).options[index];if(!a)return null;rng(s);
-    m.play={id:`${s.week}-${m.kind}-${m.turn}-${s.seed}`,index,config:{mode:playModes[a.type],variant:a.type,seed:s.seed,skill:s.player.attrs[a.skill],energy:s.energy,bond:s.bond,stamina:s.player.attrs.stamina,number:s.player.number,role:s.player.role,points:a.val,decision:a.q,...(s.match.league?{opposition:s.match.league.opposition,teamName:s.match.league.teamName,teammates:[...s.match.league.teammates],...(s.match.league.official?{noDraw:true}:{})}:{}),...(s.growth?{attributes:{...s.player.attrs},perks:[...s.growth.equipped]}:{}),...(m.competition?{opposition:m.competition.opposition,teamName:m.competition.teamName,teammates:[...m.competition.teammates],...(m.competition.official?{noDraw:true}:{})}:!s.growth&&m.kind==='weekly'&&s.week>=13&&s.week<=24?{opposition:Story.fixture(s.week).opposition}:{}),liveMatch:true,matchSeconds:liveSeconds(m),baseScore:[...m.score],...(m.highlights?{highlight:true,fastbreak:m.turn===0,noDraw:false,...(!m.league?{teamName:m.competition?.teamName||(m.kind==='tryout'?'橙队':'江岚中学')}:{})}:m.turn===3?{timeLimit:9}:{})},model:null};
+    m.play={id:`${s.week}-${m.kind}-${m.turn}-${s.seed}`,index,config:{mode:playModes[a.type],variant:a.type,seed:s.seed,skill:s.player.attrs[a.skill],energy:s.energy,bond:s.bond,stamina:s.player.attrs.stamina,number:s.player.number,role:s.player.role,points:a.val,decision:a.q,...(s.match.league?{opposition:s.match.league.opposition,teamName:s.match.league.teamName,teammates:[...s.match.league.teammates],...(s.match.league.official?{noDraw:true}:{})}:{}),...(s.growth?{attributes:{...s.player.attrs},perks:[...s.growth.equipped]}:{}),...(m.competition?{opposition:m.competition.opposition,teamName:m.competition.teamName,teammates:[...m.competition.teammates],...(m.competition.official?{noDraw:true}:{})}:!s.growth&&m.kind==='weekly'&&s.week>=13&&s.week<=24?{opposition:Story.fixture(s.week).opposition}:{}),liveMatch:true,matchSeconds:liveSeconds(m),baseScore:[...m.score],...(m.highlights?{highlight:true,fastbreak:m.highlights.version===1?m.turn===0:!!Flavor.catalog[m.highlights.moments[m.turn]]?.fastbreak,noDraw:false,...(!m.league?{teamName:m.competition?.teamName||(m.kind==='tryout'?'橙队':'江岚中学')}:{})}:m.turn===3?{timeLimit:9}:{})},model:null};
     return m.play;
   }
   function checkpointPlay(s,id,model) {
@@ -117,8 +117,13 @@
     if(s.match.play.config.liveMatch)return false;
     return choose(s,s.match.play.index,execution);
   }
+  function earlyHighlightValid(e){
+    if(e.highlightEnd!==true)return false;
+    const events=e.events||[],pass=events.some(x=>x.kind==='pass'&&x.actor==='player'),caught=events.some(x=>x.kind==='catch'&&x.actor==='mate');
+    return e.stats.points>0||e.stats.assists>0||e.mode==='rebound'&&e.stats.rebounds>0&&pass&&caught||e.mode==='screen'&&events.some(x=>x.kind==='screen'&&x.actor==='player')&&events.some(x=>x.kind==='catch'&&x.actor==='player')||e.mode==='defense'&&(e.stats.steals>0||e.stats.blocks>0)&&pass&&caught;
+  }
   function completeLive(s,e){
-    const m=s.match,p=m.play;if(!p.config.liveMatch||e.end!=='whistle'||(p.config.noDraw?e.noDraw!==true||!Number.isInteger(e.overtimes)||e.overtimes<0||e.duration!==p.config.matchSeconds+e.overtimes*300||m.score[0]+e.teamPoints===m.score[1]+e.opponentPoints:e.noDraw===true||e.duration!==p.config.matchSeconds)||!Number.isInteger(e.possessions)||e.possessions<1||e.events.at(-1)?.kind!=='whistle')return false;
+    const m=s.match,p=m.play;if(!p.config.liveMatch||e.end!=='whistle'||(p.config.noDraw?e.noDraw!==true||!Number.isInteger(e.overtimes)||e.overtimes<0||e.duration!==p.config.matchSeconds+e.overtimes*300||m.score[0]+e.teamPoints===m.score[1]+e.opponentPoints:e.noDraw===true||!(e.duration===p.config.matchSeconds||p.config.highlight&&earlyHighlightValid(e)&&Number.isInteger(e.duration)&&e.duration>=1&&e.duration<p.config.matchSeconds))||!Number.isInteger(e.possessions)||e.possessions<1||e.events.at(-1)?.kind!=='whistle')return false;
     if(p.config.noDraw&&e.events.filter(x=>x.kind==='overtime').length!==e.overtimes)return false;
     const makes=e.events.filter(x=>x.kind==='make'),home=makes.filter(x=>x.actor!=='opponent').reduce((a,x)=>a+(x.points||0),0),away=makes.filter(x=>x.actor==='opponent').reduce((a,x)=>a+(x.points||0),0);
     if(home!==e.teamPoints||away!==e.opponentPoints)return false;
@@ -276,7 +281,7 @@
     const m=s.match,d=m.league,total=d?(d.official?League.duration(d.tier):d.planned):kind==='tryout'?300:2400;
     if(!d)m.score=[0,0];
     const pool={guard:['pass','shot','screen'],wing:['shot','drive','pass'],big:['rebound','screen','shot']}[s.player.role];
-    m.highlights={version:1,phase:'broadcast',total,elapsed:0,clipSeconds:20,played:0,middle:pool[kind==='tryout'?0:((s.career?.round??s.week)%3)],feed:[],
+    m.highlights={version:2,moments:[null,null,null],schedule:Flavor.schedule(s,total),phase:'broadcast',total,elapsed:0,clipSeconds:20,played:0,middle:pool[kind==='tryout'?0:((s.career?.round??s.week)%3)],feed:[],
       ...(d?{manual:League.emptySegment(s,d.home,d.away)}:{})};
     m.simText='裁判抛起篮球，比赛开始。';
     addBroadcast(s,'开场',d&&d.planned===0?'教练暂时没有安排你上场，先在场边观察球队的攻防。':'双方走上球场。先把防守站稳，机会会随着比赛出现。');
@@ -285,6 +290,7 @@
   function addBroadcast(s,label,text){const m=s.match,h=m.highlights;h.feed.push({label,text,elapsed:h.elapsed,score:[...m.score]});h.feed=h.feed.slice(-20);m.simText=text;}
   function highlightScene(s){
     const t=s.match.turn,r=s.player.role,middle=s.match.highlights.middle;
+    if(s.match.highlights.version===2)return Flavor.scene(s.match.highlights.moments[t]||'connect');
     if(t===0)return {tag:'转换机会',title:'退防还没站稳，前场有机会！',text:'队友送出向前的传球。你拿球推进，另一侧有人快下，退防球员正封向篮下。',tip:'可以自己终结，也可以把球分给跟进的队友。',options:[action('接管这次快攻','推进、分球或上篮 · 约 20 秒','drive',3,3,.65,'drive',2)]};
     if(t===1&&middle==='rebound')return {tag:'篮下争夺',title:'球弹了出来，抢下这个篮板。',text:'队友的投篮弹向篮前。你和对手都在向落点靠近，先占住位置，再争起跳时机。',tip:'抢到后可以补篮，也可以传回外线。',options:[action('争抢这个篮板','卡位、起跳，再选择补篮或传球 · 约 20 秒','rebound',3,4,.7,'rebound')]};
     if(t===1&&middle==='pass')return {tag:'穿针引线',title:'协防靠近，弱侧队友举起了手。',text:'你持球吸引了防守。队友正在空切，也有人来到身前准备掩护，找到最合适的出球时机。',tip:'先看传球路线；防守收回去时，也可以自己出手。',options:[action('组织这次进攻','传球、挡拆与投篮 · 约 20 秒','pass',3,4,.7,'assist',2)]};
@@ -315,7 +321,7 @@
     const m=s.match,h=m.highlights,d=m.league,before=[...m.score],previous=h.elapsed,seconds=Math.max(0,target-h.elapsed);let segment=null;
     if(d){
       const all=League.plus(d.prefix,h.manual),played=League.personal(all).seconds;
-      const reserve=final?0:d.planned?20:0;
+      const reserve=final||m.turn>=3?0:d.planned?20:0;
       const planned=Math.max(0,(final?d.planned:Math.round(d.planned*(target+reserve)/h.total))-played-reserve);
       const tail=League.simulate(s,d.home,d.away,seconds,Math.min(seconds,planned),final&&d.official,all.score);
       segment=tail;d.prefix=League.plus(d.prefix,tail);h.overtimes=(h.overtimes||0)+tail.overtimes;syncHighlights(s);
@@ -325,6 +331,7 @@
     }
     const delta=m.score.map((x,i)=>x-before[i]),period=h.total/4,quarter=Math.min(3,Math.floor(h.elapsed/period)),remaining=Math.max(0,Math.ceil((quarter+1)*period-h.elapsed));
     const label=final?'终场':m.kind==='tryout'?`选拔 ${Math.floor(h.elapsed/60)}:${String(h.elapsed%60).padStart(2,'0')}`:`${['首节','第二节','第三节','末节'][quarter]} · ${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}`;
+    if(h.version===2){addBroadcast(s,label,Flavor.broadcast(s,before,delta,segment,final));return;}
     const own=delta[0]>delta[1]?'球队靠这一段攻防占了上风。':delta[0]<delta[1]?'对手逐渐提速，教练提醒大家尽快落位。':'双方你来我往，比分依然咬得很紧。';
     let detail='';
     if(segment){
@@ -348,7 +355,7 @@
   }
   function completeHighlight(s,e){
     const m=s.match,h=m.highlights,d=m.league;
-    if(h.phase!=='moment'||e.duration!==h.clipSeconds||e.noDraw)return false;
+    if(h.phase!=='moment'||!(e.duration===h.clipSeconds||e.highlightEnd===true&&Number.isInteger(e.duration)&&e.duration>=1&&e.duration<h.clipSeconds)||e.noDraw)return false;
     if(d){h.manual=League.plus(h.manual,League.fromLive(s,m,e,e.duration));syncHighlights(s);}
     else{for(const k of Object.keys(m.stats))m.stats[k]+=e.stats[k];m.score[0]+=e.teamPoints;m.score[1]+=e.opponentPoints;h.elapsed+=e.duration;}
     if(e.events.some(x=>x.actor==='player'&&['pass','screen'].includes(x.kind)))s.bond=clamp(s.bond+2,0,100);
@@ -370,7 +377,22 @@
     if(h.phase==='feedback'){m.feedback=null;m.turn++;}
     if(m.league?.planned===0){while(m.turn<3){highlightRecord(s);m.feedback=null;m.turn++;}return finishHighlights(s);}
     if(m.turn===3)return finishHighlights(s);
-    simulateHighlightGap(s,Math.floor(h.total*[.2,.5,.8][m.turn]));h.phase='moment';return true;
+    simulateHighlightGap(s,h.version===2?h.schedule[m.turn]:Math.floor(h.total*[.2,.5,.8][m.turn]));
+    if(h.version===2)h.moments[m.turn]=Flavor.select(s);h.phase='moment';return true;
+  }
+  function tickHighlights(s){
+    const m=s.match,h=m?.highlights;
+    if(s.stage!=='match'||!h||h.playbackPaused||m.complete||m.play||!['broadcast','stream','feedback'].includes(h.phase))return false;
+    if(h.phase==='feedback'){m.feedback=null;m.turn++;}h.phase='stream';
+    const target=m.turn>=3||m.league?.planned===0?h.total:h.version===2?h.schedule[m.turn]:Math.floor(h.total*[.2,.5,.8][m.turn]);
+    let next=Math.min(target,h.elapsed+Math.min(180,Math.max(30,Math.round(h.total/16))));if(target-next<30)next=target;
+    if((m.turn>=3||m.league?.planned===0)&&next>=h.total){
+      if(m.league?.planned===0){while(m.turn<3){highlightRecord(s);m.feedback=null;m.turn++;}h.phase='stream';}
+      return finishHighlights(s);
+    }
+    if(next>h.elapsed)simulateHighlightSpan(s,next);
+    if(h.elapsed>=target){if(h.version===2)h.moments[m.turn]=Flavor.select(s);h.phase='moment';}
+    return true;
   }
   function skipHighlight(s){
     const m=s.match,h=m?.highlights;if(s.stage!=='match'||!h||h.phase!=='moment'||m.play)return false;
@@ -403,7 +425,11 @@
   }
   function highlightsValid(s){
     const m=s.match,h=m.highlights,n=x=>Number.isInteger(x)&&x>=0;
-    if(h.version!==1||!['broadcast','moment','feedback'].includes(h.phase)||!['pass','shot','drive','screen','rebound'].includes(h.middle)||!n(h.total)||h.total<120||h.total>2880||!n(h.elapsed)||h.elapsed>h.total||h.clipSeconds!==20||!n(h.played)||h.played>3||!Array.isArray(h.feed)||h.feed.length>20||h.feed.some(x=>!x||typeof x.label!=='string'||x.label.length>80||typeof x.text!=='string'||x.text.length>1500||!n(x.elapsed)||!Array.isArray(x.score)||x.score.length!==2||!x.score.every(n)))return false;
+    if(![1,2].includes(h.version)||!['broadcast','stream','moment','feedback'].includes(h.phase)||!['pass','shot','drive','screen','rebound'].includes(h.middle)||!n(h.total)||h.total<120||h.total>2880||!n(h.elapsed)||h.elapsed>h.total||h.clipSeconds!==20||!n(h.played)||h.played>3||!Array.isArray(h.feed)||h.feed.length>20||h.feed.some(x=>!x||typeof x.label!=='string'||x.label.length>80||typeof x.text!=='string'||x.text.length>1500||!n(x.elapsed)||!Array.isArray(x.score)||x.score.length!==2||!x.score.every(n)))return false;
+    if(h.version===2){
+      if(!Array.isArray(h.schedule)||h.schedule.length!==3||h.schedule.some((x,i)=>!n(x)||x<0||x>h.total-20||i>0&&x<=h.schedule[i-1]+20)||!Array.isArray(h.moments)||h.moments.length!==3||h.moments.some(x=>x!==null&&!Object.hasOwn(Flavor.catalog,x))||['moment','feedback'].includes(h.phase)&&m.turn<3&&!h.moments[m.turn]||h.lastSpan!==undefined&&(!h.lastSpan||!n(h.lastSpan.misses)||!n(h.lastSpan.steals)))return false;
+    }
+    if(h.playbackPaused!==undefined&&typeof h.playbackPaused!=='boolean')return false;
     if((h.phase==='feedback')!==!!m.feedback||h.phase==='broadcast'&&(m.turn!==0||m.records.length)||h.phase==='moment'&&m.turn>=3)return false;
     if(h.total!==(m.league?(m.league.official?League.duration(m.league.tier):m.league.planned):m.kind==='tryout'?300:2400)||h.overtimes!==undefined&&(!n(h.overtimes)||h.overtimes>30))return false;
     if(m.league){if(!League.segmentValid(h.manual)||h.elapsed!==h.manual.seconds+m.league.prefix.seconds)return false;const total=League.plus(m.league.prefix,h.manual);if(JSON.stringify(m.score)!==JSON.stringify([total.score[m.league.mine],total.score[1-m.league.mine]])||JSON.stringify(m.stats)!==JSON.stringify(League.personal(total).stats))return false;}
@@ -482,5 +508,5 @@
       return valid(s) ? s : null;
     } catch (_) { return null; }
   }
-  return { snapshot:League.snapshot, Growth, League, beginCareer, beginHighlights, advanceHighlights, skipHighlight, simulateHighlights:quickHighlights, quickMatch, upgrade:s=>{if(!valid(s)||s.stage==='match'||s.career)return null;const q=JSON.parse(JSON.stringify(s));if(q.stage==='result'){q.stage='home';if(q.lastReport.kind==='weekly'){q.week++;q.training=[];q.lastTraining='';q.energy=clamp(q.energy+28,0,100);if(q.growth)Growth.week(q);}}if(!q.growth)Growth.init(q,true);return League.init(q)?q:null;}, migrate:s=>{if(s.growth||!valid(s)||s.stage==='match')return null;return Growth.init(JSON.parse(JSON.stringify(s)),true);}, league:Story.league, enroll:(s,route)=>!Story.current(s)&&Story.enroll(s,route), storySeasonSix:Story.seasonSix, career:Story.career, storySeasonFive:Story.seasonFive, preparation:Story.preparation, storySeasonFour:Story.seasonFour, youth:Story.youth, storySeasonThree:Story.seasonThree, fixture:(week,s)=>s?.career?(League.describe(s)||{opponent:'休赛期',label:'赛季收官',teamName:s.career.teams.find(t=>t.id===s.career.teamId).name}):s?.growth?Growth.fixture(s):Story.fixture(week,s), development:Story.dossier, relations:Story.relations, storySeasonTwo:Story.seasonTwo, storyScene:s=>s?.growth?null:Story.current(s), storySeason:Story.season, storyTotal:Story.total, storyChoose:Story.choose, storyAdvance:Story.advance, storyGoal:s=>s?.growth?null:Story.goal(s), storyChapters:Story.chapters, storyCast:Story.cast, VERSION, attrs, roles, origins, placements, training, create, introduction, begin, scene, choose, startPlay, checkpointPlay, completePlay, executionValid, next, goHome, train, valid, restore, clamp };
+  return { snapshot:League.snapshot, Growth, League, beginCareer, beginHighlights, advanceHighlights, tickHighlights, skipHighlight, simulateHighlights:quickHighlights, quickMatch, upgrade:s=>{if(!valid(s)||s.stage==='match'||s.career)return null;const q=JSON.parse(JSON.stringify(s));if(q.stage==='result'){q.stage='home';if(q.lastReport.kind==='weekly'){q.week++;q.training=[];q.lastTraining='';q.energy=clamp(q.energy+28,0,100);if(q.growth)Growth.week(q);}}if(!q.growth)Growth.init(q,true);return League.init(q)?q:null;}, migrate:s=>{if(s.growth||!valid(s)||s.stage==='match')return null;return Growth.init(JSON.parse(JSON.stringify(s)),true);}, league:Story.league, enroll:(s,route)=>!Story.current(s)&&Story.enroll(s,route), storySeasonSix:Story.seasonSix, career:Story.career, storySeasonFive:Story.seasonFive, preparation:Story.preparation, storySeasonFour:Story.seasonFour, youth:Story.youth, storySeasonThree:Story.seasonThree, fixture:(week,s)=>s?.career?(League.describe(s)||{opponent:'休赛期',label:'赛季收官',teamName:s.career.teams.find(t=>t.id===s.career.teamId).name}):s?.growth?Growth.fixture(s):Story.fixture(week,s), development:Story.dossier, relations:Story.relations, storySeasonTwo:Story.seasonTwo, storyScene:s=>s?.growth?null:Story.current(s), storySeason:Story.season, storyTotal:Story.total, storyChoose:Story.choose, storyAdvance:Story.advance, storyGoal:s=>s?.growth?null:Story.goal(s), storyChapters:Story.chapters, storyCast:Story.cast, VERSION, attrs, roles, origins, placements, training, create, introduction, begin, scene, choose, startPlay, checkpointPlay, completePlay, executionValid, next, goHome, train, valid, restore, clamp };
 });

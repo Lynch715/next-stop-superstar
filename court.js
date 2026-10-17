@@ -13,7 +13,7 @@
     rebound: { name: '篮板', title: '篮板，先争位置，再争高度。', steps: '观察篮板落点 → 移动卡住对手 → 进入绿区起跳', task: '移动到金色落点附近，点击卡位，再在绿色时机起跳。', action: '起跳抢板', limit: 24 },
     drive: { name: '突破', title: '变向，把防守留在身后。', steps: '观察防守横移 → 左右变向绕开 → 篮下按住投篮', task: '别直撞防守人。绕开他，到篮下绿色区域完成终结。', action: '按住终结', limit: 24 },
     defense: { name: '防守', title: '你的脚步，就是这道防线。', steps: '移动跟住持球人 → 保持在人与篮筐之间 → 合适时机封堵', task: '守住金色防守点；等持球人靠近，再按抢断或封堵。', action: '抢断 / 封堵', limit: 7 },
-    protect: { name: '护球', title: '最后几秒，把球留在我们手里。', steps: '移动避开逼抢 → 不撞入包围 → 稳稳守到时间结束', task: '用移动拉开距离。守住球权，不必为了高光强行出手。', action: '压低重心护球', limit: 7 }
+    protect: { name: '护球', title: '逼抢来了，把球留在我们手里。', steps: '移动避开逼抢 → 不撞入包围 → 稳稳守到时间结束', task: '用移动拉开距离。守住球权，不必为了高光强行出手。', action: '压低重心护球', limit: 7 }
   };
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
   const dist = (a,b) => Math.hypot(a.x-b.x,a.y-b.y);
@@ -388,6 +388,21 @@
     if(offensive){const side=s.run.side,idx=f.result.boardIndex;resetPlay(s);s.run.side=side;s.clock=14;s.owner=winner;s.flow=side==='away'?'defense':'shot';s.stage='aim';if(winner==='mate')s.carrier=idx;if(winner==='opponent')s.run.carrier=idx;s.run.nextAction=s.t+.9;ball(s);return;}
     claim(s,winner==='opponent'?'away':'home',winner,f.result.boardIndex,text);
   }
+  function highlightGoal(s){
+    if(!s.config.highlight||!s.run||s.phase==='done')return false;
+    if(s.stats.points>0||s.stats.assists>0)return true;
+    const pass=s.events.some(e=>e.kind==='pass'&&e.actor==='player'),caught=s.events.some(e=>e.kind==='catch'&&e.actor==='mate');
+    if(s.config.mode==='rebound')return s.stats.rebounds>0&&pass&&caught;
+    if(s.config.mode==='screen')return s.events.some(e=>e.kind==='screen'&&e.actor==='player')&&s.events.some(e=>e.kind==='catch'&&e.actor==='player');
+    if(s.config.mode==='defense')return (s.stats.steals>0||s.stats.blocks>0)&&s.run.side==='home'&&pass&&caught;
+    return false;
+  }
+  function finishHighlight(s){
+    if(!highlightGoal(s)||s.phase==='flight'||s.owner==='loose')return false;
+    const elapsed=Math.max(1,Math.ceil(s.t));if(elapsed>=s.run.duration)return false;
+    if(!finalWhistle(s))return false;
+    s.gameClock=0;s.outcome.duration=elapsed;s.outcome.highlightEnd=true;return true;
+  }
   function finalWhistle(s){
     if(s.phase==='done')return false;
     if(s.config.noDraw&&s.run.baseScore[0]+s.teamPoints===s.run.baseScore[1]+s.opponentPoints){s.run.overtimes=(s.run.overtimes||0)+1;s.run.duration+=300;s.gameClock=300;record(s,'overtime','player',`双方战平，进入第${s.run.overtimes}个加时，继续五分钟攻防。`);const away=s.run.overtimes%2===1;claim(s,away?'away':'home',away?'opponent':'player',away?0:-1,'加时开始，球权已确定，继续比赛。',true);return true;}
@@ -487,5 +502,5 @@
       if(s.phase==='done')return null;initAI(s,true);if(s.config.liveMatch)initRun(s,true);return valid(s)?s:null;
     }catch(_){return null;}
   }
-  return {W,H,FULL_H,hoop,awayHoop,defenseSpot,modes,create,restore,start,pause,aim,press,step,meter,reboundWindow,lanes,valid,resultValid,canMove,project,dist,segment,copy,clamp};
+  return {W,H,FULL_H,hoop,awayHoop,defenseSpot,modes,highlightGoal,finishHighlight,create,restore,start,pause,aim,press,step,meter,reboundWindow,lanes,valid,resultValid,canMove,project,dist,segment,copy,clamp};
 });

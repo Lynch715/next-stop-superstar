@@ -155,13 +155,18 @@ function settings(){
 }
 
 function render(scroll = true) {
+  const oldFeed=$('.auto-broadcast .broadcast-feed'),oldFeedTop=oldFeed?.scrollTop;
+  PageFolds.remember($('#content'));
   const club=S?.career?clubName(S.career.tier,S.career.teamId,S.career.teams.find(t=>t.id===S.career.teamId).name):'江岚中学';$('.sidebar-bottom>b').textContent=club;$('.school-seal').innerHTML=S?.career?clubMark(S.career.tier,S.career.teamId,club):esc(Array.from(club)[0]);
   nav(); updateSave();
   const crumb = {season:'赛季与排名',opportunities:'试训与合同', welcome: '故事的起点', create: '创建你的篮球少年', team: '球队伙伴', album: '成长纪念册', guide: '怎么打球', settings: '存档与设置', career: S ? ({ arrival: '初到江岚', introFeedback: '初到江岚', match: '比赛进行中', result: '赛后评价', home: S.career?.phase==='retired'?'生涯已退役':`第 ${S.week} 周安排` }[S.stage]) : '故事的起点' };
   $('#crumb').textContent = crumb[view];
   const pages = {season:careerSeasonView,opportunities:careerOpportunitiesView, welcome, create: creation, team, album, guide, settings, career: () => S.stage === 'arrival' || S.stage === 'introFeedback' ? arrival() : S.stage === 'match' ? match() : S.stage === 'result' ? result() : home() };
   $('#content').innerHTML = `<div class="page-enter">${pages[view]()}</div>`;
+  PageFolds.enhance($('#content'),view,S);
   if (scroll) window.scrollTo({ top: 0, behavior: 'instant' });
+  const feed=$('.auto-broadcast .broadcast-feed');if(feed){feed.style.scrollBehavior='auto';feed.scrollTop=oldFeedTop??feed.scrollHeight;feed.style.scrollBehavior='';feed.scrollTo({top:feed.scrollHeight,behavior:oldFeedTop===undefined||window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});}
+  matchFlow.sync();
 }
 function rememberDraft() { const n = $('#player-name'), num = $('#player-number'); if (n) draft.name = n.value; if (num) draft.number = num.value; }
 function modal(title, text, onConfirm, confirmLabel = '确认并继续') {
@@ -189,6 +194,7 @@ function processAction(el) {
   if (a === 'export') { downloadSave(); toast('生涯备份已开始下载。'); return; }
   if (a === 'import') { $('#import-file').click(); return; }
   if (!S) return;
+  if(a==='flow-pause'&&S.match?.highlights){S.match.highlights.playbackPaused=!S.match.highlights.playbackPaused;save();render(false);return;}
   if(a==='flow-next'||a==='flow-skip'||a==='flow-quick'){const done=a==='flow-next'?H.advanceHighlights(S):a==='flow-skip'?H.skipHighlight(S):H.simulateHighlights(S);if(done){save();render(a==='flow-next');}return;}
   if(processCareerAction(el))return;
   if(a==='migrate'){if(S.stage==='match'){toast('请先完成当前比赛，再接入成长版。');return;}modal('接入训练成长版？','保留旧版原始存档和全部历史。新版本提供 6 点训练资源，取消固定对白门槛；先从校队训练和比赛继续，也可以开启完整赛季。',()=>{const next=H.migrate(S);if(next){downloadSave();S=next;save();view='career';render();}},'备份并接入');return;}
@@ -220,13 +226,13 @@ function practiceMode(mode){
   const config={mode,liveMatch:true,matchSeconds:120,baseScore:[0,0],seed:Date.now()>>>0,skill:65,energy:100,bond:S?.bond??30,stamina:S?.player.attrs.stamina??55,number:S?.player.number??7,role:'wing',points:2,decision:3};
   CourtUI.open({config,practice:true,title:BasketCourt.modes[mode].title,onMenu:practiceMenu});
 }
-function launchCourt(pending){
-  try{CourtUI.open({config:pending.config,state:pending.model,...(S.match.league?{clubMarkup:matchClubBoard(S.match.league),teamName:clubName(S.match.league.tier,S.match.league.teamId,S.match.league.teamName)}:{}),opponent:S.match.opponent,title:H.scene(S).options[pending.index].title,practice:false,
+function launchCourt(pending,automatic=false){
+  try{CourtUI.open({config:pending.config,state:pending.model,autoStart:automatic,autoAdvance:automatic,finishOnGoal:automatic,...(S.match.league?{clubMarkup:matchClubBoard(S.match.league),teamName:clubName(S.match.league.tier,S.match.league.teamId,S.match.league.teamName)}:{}),opponent:S.match.opponent,title:H.scene(S).options[pending.index].title,practice:false,
     ...(S.match.league?.official?{onSimulate:()=>confirmCareerQuick()}:{}),
     onProgress:model=>{if(H.checkpointPlay(S,pending.id,model))save();},
     onComplete:result=>{if(H.completePlay(S,pending.id,result)){save();render(false);}},
-    onClose:()=>{view='career';render(false);if(S.stage==='result')window.scrollTo({top:0,behavior:'instant'});if(S.match?.feedback&&innerWidth<=880)$('.decision-panel')?.scrollIntoView({block:'start',behavior:'instant'});}
-  });}catch(error){toast(error.message||'暂时无法恢复比赛，请先导出备份。');}
+    onClose:done=>{if(automatic&&!done&&S.match?.highlights){S.match.highlights.playbackPaused=true;save();}view='career';render(false);if(S.stage==='result')window.scrollTo({top:0,behavior:'instant'});if(S.match?.feedback&&!S.match.highlights&&innerWidth<=880)$('.decision-panel')?.scrollIntoView({block:'start',behavior:'instant'});}
+  });}catch(error){if(automatic&&S.match?.highlights){S.match.highlights.playbackPaused=true;save();render(false);}toast(error.message||'暂时无法恢复比赛，请先导出备份。');}
 }
 
 document.addEventListener('click', event => {
@@ -255,4 +261,12 @@ document.addEventListener('change', async event => {
   event.target.value = '';
 });
 document.querySelectorAll('[data-icon]').forEach(el => el.innerHTML = icon(el.dataset.icon));
+const matchFlow=MatchPlayback.create({
+ state:()=>S,ready:()=>view==='career'&&!document.hidden&&!document.querySelector('dialog[open]'),set:(fn,ms)=>setTimeout(fn,ms),clear:id=>clearTimeout(id),
+ tick:()=>H.tickHighlights(S),changed:()=>{save();render(false);},
+ enter:()=>{const pending=H.startPlay(S,0);if(pending){save();launchCourt(pending,true);}}
+});
+document.addEventListener('visibilitychange',()=>matchFlow.sync());
+window.addEventListener('pagehide',()=>matchFlow.stop());
+$('#dialog').addEventListener('close',()=>matchFlow.sync());
 render();

@@ -18,6 +18,8 @@ jobs:
         run: |
           node test-mobile.cjs
           node test-highlights.cjs
+          node test-match-context.cjs
+          node test-playback.cjs
       - name: Build and validate website
         run: |
           python3 tools/build_release.py
