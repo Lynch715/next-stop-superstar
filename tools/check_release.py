@@ -24,6 +24,7 @@ assert 'maskable' in {e['purpose'] for e in app['icons']}
 raw=(d/'assets/app/apple-touch-icon.png').read_bytes()
 assert struct.unpack('>II',raw[16:24])==(180,180)
 assert 'name="apple-mobile-web-app-title" content="下一站巨星"' in (d/'index.html').read_text()
+assert '<title>下一站巨星</title>' in (d/'index.html').read_text()
 for z in (ROOT/'release').glob('*.zip'):
     with zipfile.ZipFile(z) as archive:
         assert archive.testzip() is None
