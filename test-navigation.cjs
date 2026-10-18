@@ -27,4 +27,19 @@ for(const state of saves){context.fixture=state;run("S=fixture;view='career';car
 // A real completed season must lead through signing and registration back to games.
 {const s=closeSeason();if(s.week<s.career.seasonStart+40){context.fixture=s;run("S=fixture;view='career';careerSection='management'");ok(!run('careerHome()').includes('data-action="new-season"'),'early offseason leads to calendar, not skipped invitations');ok(H.League.advance(s,false)?.weeks,'advance to the actual signing window');}context.fixture=s;run("S=fixture");ok(!run('careerCalendarNotice(S)').includes('上场'),'reaching the signing window never says a game is ready');const year=s.career.year,offer=s.career.offers.find(o=>o.type==='contract'&&o.status==='available');ok(offer,'the season provides a continuation contract');ok(H.League.accept(s,offer.id),'a valid renewal can be signed');context.fixture=s;run("S=fixture;view='career';careerSection='court'");ok(run('careerHome()').includes('注册并进入新赛季'),'a signed contract points to registration');ok(H.League.nextSeason(s,false),'registration starts the next real season');ok(s.career.year===year+1&&s.career.phase==='regular'&&!s.career.pending&&!s.career.summary,'registration clears old-season decisions');ok(!run('careerHome()').includes('class="season-summary"'),'the new season never reopens the previous recap');ok(H.valid(s),'registered season still validates');}
 if(fs.existsSync('qa/career-natural-offseason.json')){const s=H.restore(JSON.parse(fs.readFileSync('qa/career-natural-offseason.json'))),offer=s.career.offers.find(o=>o.type==='trial'&&o.status==='available');ok(H.beginHighlights(s,'trial',offer.id),'a real CBA invitation can start from the desk');ok(H.simulateHighlights(s),'the trial finishes in the existing engine');context.fixture=s;run("S=fixture;view='career';careerSection='court';processAction({dataset:{action:'home'}})");ok(s.stage==='home'&&run('view')==='career'&&run('careerSection')==='management','a trial result returns to the first tab and contract desk');ok(H.valid(s),'the completed trial remains a valid save');}
+// Live layout keeps the actual score, clock, five player stats and playback controls together.
+for(const role of ['guard','wing','big']){
+ const s=youth();s.player.role=role;ok(H.beginHighlights(s,'weekly'),'weekly text match starts');
+ for(let i=0;i<2&&s.match.highlights.phase!=='moment';i++)ok(H.tickHighlights(s),'broadcast advances');
+ for(const paused of [false,true]){s.match.highlights.playbackPaused=paused;context.fixture=s;run("S=fixture;view='career'");const before=JSON.stringify(H.snapshot(s)),html=run('highlightMatchView()'),h=s.match.highlights,left=h.total-h.elapsed,clock=Math.floor(left/60)+':'+String(left%60).padStart(2,'0');
+  ok(html.includes('class="live-match"')&&html.includes('class="live-score-line"'),'compact score and broadcast share one live view');
+  ok(html.includes('aria-label="本场比分">'+s.match.score.join(' : ')+'</div>'),'live score uses the actual match');
+  ok(html.includes('<b>'+clock+'</b>'),'remaining time stays prominent');
+  for(const label of ['得分','助攻','篮板','抢断','盖帽'])ok(html.includes('<span>'+label+'</span>'),'live performance retains '+label);
+  ok(html.includes('auto-broadcast')&&html.includes('class="broadcast-feed"'),'automatic scrolling selector stays intact');
+  ok(html.includes('data-action="flow-pause"')&&html.includes(paused?'继续比赛':'暂停播报'),'pause and resume remain available');
+  ok(html.includes('data-action="quick-match"'),'the existing match handover remains available');
+  ok(JSON.stringify(H.snapshot(s))===before,'live rendering never changes the match or save');
+ }
+}
 console.log(`PASS · ${checks} navigation and action ownership checks · reference pages read-only · career desk owns progression · saves/RNG unchanged`);
