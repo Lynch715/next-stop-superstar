@@ -28,15 +28,54 @@
   let rewardNote=g?'表现 '+g.base+' 点 · 职责 '+g.bonus+' 点':r.league.official?'旧记录未保存本场奖励':'本次不发放训练点';
   if(g?.development&&r.minutes===0)rewardNote='本场未出场，已有奖励进度保留';
   else if(g?.development)rewardNote=(g.total===0?'本场未兑换整点。':'')+'表现累计 '+Math.floor(g.development.baseCarry/g.development.rate[1]*100)+'% · 职责累计 '+Math.floor(g.development.bonusCarry/g.development.rate[1]*100)+'%';
-  const opportunity=!r.league.official&&r.league.kind!=='assessment';
+  const opportunity=!r.league.official&&r.league.kind!=='assessment',ended=r.league.official&&s.career.phase==='offseason'&&!!s.career.summary;
   const recover=s.energy<60&&G.preview(q,'rest').available,target=recover?'rest':recommendation?.id;
   const canTrain=target&&G.preview(q,target).available;
-  const action={type:'home',label:opportunity?'回到球队，查看机会':recover?'回到球队，先恢复':canTrain?'回到球队，练'+H.attrs[target]:'回到训练与下一场',target:!opportunity?target:null};
-  const note=opportunity?'本次考核已记录，先查看球队机会。':recover?'精力偏低，先恢复，再安排专项。':s.growth.used>=2?'本周安排已用完，先完成赛程；下周优先练这项。':target&&!canTrain?G.preview(q,target).reason+'；先回到球队安排下一步。':'回队后还可安排 '+(2-s.growth.used)+' 次训练。';
+  const action={type:'home',label:ended?'查看赛季总结':opportunity?'回到球队，查看机会':recover?'回到球队，先恢复':canTrain?'回到球队，练'+H.attrs[target]:'回到训练与下一场',target:!opportunity&&!ended?target:null};
+  const note=ended?'这一季已结束，回到球队查看收官与下季安排。':opportunity?'本次考核已记录，先查看球队机会。':recover?'精力偏低，先恢复，再安排专项。':s.growth.used>=2?'本周安排已用完，先完成赛程；下周优先练这项。':target&&!canTrain?G.preview(q,target).reason+'；先回到球队安排下一步。':'回队后还可安排 '+(2-s.growth.used)+' 次训练。';
   return {recommendation,reward,rewardNote,tpBefore:g&&s.stage==='result'&&s.growth.tp>=g.total?s.growth.tp-g.total:null,tpAfter:s.growth.tp,energyBefore,energyAfter:s.energy,spent,action,note,roleFrom:g?G.roles[g.oldRole].name:null,roleTo:g?G.roles[g.newRole].name:G.role(s).name};
  }
+ function seasonTraining(s,H){
+  const a=s.career?.summary;if(!a)return [];
+  const G=H.Growth,p=a.player,st=p.stats,apps=p.apps,minutes=apps?p.seconds/60/apps:0,candidates=[];
+  if(apps>=4&&st.turnovers/apps>=2.5)candidates.push({id:'handle',why:'本季场均 '+(st.turnovers/apps).toFixed(1)+' 次失误，下季先把球护稳。'});
+  if(st.attempts>=20&&st.made/st.attempts<.4)candidates.push({id:s.player.role==='big'?'drive':'shot',why:'本季投篮命中率 '+Math.round(st.made/st.attempts*100)+'%，下季重点练'+(s.player.role==='big'?'篮下终结':'出手时机')+'。'});
+  if(s.player.role==='big'&&apps>=6&&minutes>=10&&st.rebounds/apps<3)candidates.push({id:'rebound',why:'本季场均 '+(st.rebounds/apps).toFixed(1)+' 个篮板，下季重点练卡位和起跳。'});
+  if(s.player.role==='guard'&&apps>=6&&minutes>=10&&st.assists/apps<2)candidates.push({id:'pass',why:'本季场均 '+(st.assists/apps).toFixed(1)+' 次助攻，下季争取更稳定地带动队友。'});
+  if(apps>=6&&minutes>=10&&st.fouls/apps>=2.5)candidates.push({id:'defense',why:'本季场均 '+(st.fouls/apps).toFixed(1)+' 次犯规，下季先练防守脚步。'});
+  for(const id of [...focus[s.player.role]].sort((a,b)=>s.player.attrs[a]-s.player.attrs[b]))candidates.push({id,why:apps<4?'本季出场样本较少，先补强'+H.attrs[id]+'，争取稳定轮换。':'继续补强'+H.attrs[id]+'，让下季的拿手本领更稳。'});
+  for(const id of G.keys)candidates.push({id,why:'继续补强'+H.attrs[id]+'，为下季留足准备。'});
+  return candidates.filter((x,i,list)=>s.player.attrs[x.id]<96&&list.findIndex(y=>y.id===x.id)===i).slice(0,2);
+ }
+ function seasonFeedback(s,H){
+  const c=s.career,a=c?.summary;if(!a||a.year!==c.year||c.phase!=='offseason')return null;
+  const L=H.League,P=L.Path,G=H.Growth,p=a.player,apps=p.apps,st=p.stats,avg=n=>apps?n/apps:null;
+  const growth=G.keys.map(id=>{const from=c.startAttrs?.[id],gain=a.gains[id];return {id,label:H.attrs[id],gain,from:Number.isFinite(from)?from:null,to:Number.isFinite(from)?from+gain:null};});
+  const coreFrom=growth.every(x=>x.from!==null)?Math.round(growth.reduce((sum,x)=>sum+x.from*(G.weights[s.player.role][x.id]||0),0)):null;
+  const coreTo=growth.every(x=>x.to!==null)?Math.round(growth.reduce((sum,x)=>sum+x.to*(G.weights[s.player.role][x.id]||0),0)):null;
+  let finish='未进入季后赛';
+  if(a.championId===a.teamId)finish='本季冠军';
+  else{const rounds=[...c.postHistory,c.post].filter(Boolean).flatMap(post=>post.series.filter(sr=>[sr.a,sr.b].includes(a.teamId)).map(sr=>({post,sr})));const last=rounds.at(-1);if(last){const label=last.post.label||(last.post.series.length===1?'决赛':'季后赛第 '+(last.post.index+1)+' 轮');finish=last.post.series.length===1&&last.sr.winner!==a.teamId?'本季亚军':'止步'+label;}}
+  const e=L.eligibility(s),international=P.eligibility(s),sample=e.sample,routes=[];
+  const route=(id,title,ready,limits,note)=>routes.push({id,title,ready,checks:limits.map(([label,value,target,op='≥'])=>({label,value:Number.isFinite(value)?Math.floor(value*10+1e-8)/10:0,target,op,met:op==='≤'?value<=target:value>=target})),note});
+  if(c.tier==='school'&&e.age<18)route('youth','青年队 / 海外青年试训',e.youth,[['下季年龄',e.age,17,'≤'],['有效出场',sample.apps,6],['出场分钟',sample.minutes,60],['位置综合',sample.core,60],['本季均评',sample.average,60]],'先争取青年队席位，成年后再积累职业联赛机会。');
+  else if(c.tier==='school')route('development','成年发展赛事',true,[['下季年龄',e.age,18]],'先到成年发展赛事比赛，再争取 CBA 或海外球队考察。');
+  else if(['youth','overseasYouth','development'].includes(c.tier)){
+   route('cba','CBA 试训与合同',e.cba,[['下季年龄',e.age,18],['有效出场',sample.apps,10],['出场分钟',sample.minutes,120],['位置综合',sample.core,70],['本季均评',sample.average,68],['国内关注',c.domestic,40]],'通过初筛后还需获得球队机会、完成考核并签约注册。');
+   if(c.path)route('overseas','NBA G League 席位',international.overseas,[['下季年龄',e.age,18],['有效出场',sample.apps,10],['出场分钟',sample.minutes,120],['位置综合',sample.core,68],['本季均评',sample.average,65],['海外关注',c.path.scouts.overseas.attention,35]],'达到考察基线后，去球队机会里比较可签席位。');
+  }
+  if(['cba','overseas','development'].includes(c.tier)){
+   const bar=P.standards(s);route('nba','NBA 训练营 / 选秀',!!c.path&&international.nba,[['下季年龄',e.age,19],['有效出场',sample.apps,12],['出场分钟',sample.minutes,180],['位置综合',sample.core,bar.core],['本季均评',sample.average,bar.average],['NBA 关注',c.path?.scouts.nba.attention||0,50]],c.path?'正式合同还需综合 '+bar.contractCore+'、NBA 关注 70，并通过训练营或选秀后的合同考察。':'接入海外与 NBA 生涯后可查看国际考察。');
+  }
+  const next=describe(s,H);
+  if(c.tier==='nba')routes.push({id:'role',title:next.goal,ready:next.checks.length>0&&next.checks.every(x=>x.met),checks:next.checks.map(x=>({...x,op:x.label==='队内排序'?'≤':'≥'})),note:'继续用正式比赛争取角色与续约；下季会延续已有的 NBA 经验。'});
+  const level={school:0,youth:1,overseasYouth:1,development:2,cba:3,overseas:3,nba:4};
+  const higher=c.offers.filter(o=>['available','contract'].includes(o.status)&&level[o.tier]>level[c.tier]);
+  const finalYear=s.player.age>=38&&!!c.path;
+  return {summary:a,finish,finalYear,apps,minutes:p.seconds/60,points:avg(st.points),assists:avg(st.assists),rebounds:avg(st.rebounds),average:apps?p.average:null,shooting:st.attempts?st.made/st.attempts*100:null,growth,coreFrom,coreTo,training:finalYear?[]:seasonTraining(s,H),routes:finalYear?[]:routes,higher,pending:c.pending,next};
+ }
  function training(s,H){
-  const q={...s,stage:'home'},G=H.Growth,review=matchTraining(s,H),keys=focus[s.player.role];let id;
+  const q={...s,stage:'home'},G=H.Growth,review=s.career.phase==='offseason'?seasonTraining(s,H)[0]:matchTraining(s,H),keys=focus[s.player.role];let id;
   if(s.energy<60&&G.preview(q,'rest')?.available)return {id:'rest',label:'先恢复精力',why:'先把体力找回来，下一场的脚步和出手才稳。',preview:G.preview(q,'rest')};
   id=review?.id;
   const candidates=[...new Set([id,...keys.slice().sort((a,b)=>s.player.attrs[a]-s.player.attrs[b]),...H.Growth.keys])].filter(Boolean);
@@ -118,5 +157,5 @@
   const note=c.pending?'这份合同已签妥，进入下一季后完成注册。':c.tier==='nba'?'角色由正式比赛中的持续表现逐步调整，不需要为晋升重新签约。':'达到考察条件后仍需获得邀请、通过考核并签约注册。';
   return {note,stage:tierNames[c.tier],step,goal,reason,checks,title,detail,action,training:t,duty:G.duty(s).label,fixture:f};
  }
- return {describe,training,trainingSuggestions,trainingSnapshot,trainingFeedback,matchTraining,matchFeedback};
+ return {describe,training,trainingSuggestions,trainingSnapshot,trainingFeedback,matchTraining,matchFeedback,seasonTraining,seasonFeedback};
 });

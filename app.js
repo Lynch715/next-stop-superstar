@@ -187,6 +187,7 @@ function processAction(el) {
   if (a === 'nav') { const v = el.dataset.view;if(['season','opportunities'].includes(v)&&(!S?.career||!S.placement))return; if (v === 'career') { view = S ? 'career' : 'welcome'; } else if (['team', 'album'].includes(v) && !S?.placement) return; else view = v; render(); return; }
   if (a === 'create') { if (S) modal('给新的少年留个位置？', '新建时会先下载当前生涯的备份，再打开建角页。只有确认新角色时，才会替换当前进度。', () => { downloadSave(); createView(); }, '备份并创建'); else createView(); return; }
   if(a==='load-legacy'||a==='load-growth'||a==='load-season'){try{const raw=localStorage.getItem(a==='load-legacy'?LEGACY_KEY:a==='load-season'?SEASON_KEY:KEY),next=raw&&H.restore(JSON.parse(raw));if(!next){toast('尚无可读取的对应版本存档。');return;}S=next;save();view='career';render();}catch(_){toast('这份存档暂时无法读取，请保留备份。');}return;}
+  if(a==='focus-training'){if(S?.career&&S.stage==='home'){view='career';render(false);revealTrainingProject(el.dataset.value);}return;}
   if(a==='training-dismiss'){latestTrainingFeedback=null;render(false);document.querySelector('.career-training')?.scrollIntoView({block:'start',behavior:'instant'});return;}
   if (a === 'practice') { practiceMenu(); return; }
   if (a === 'practice-mode') { $('#dialog').close(); practiceMode(el.dataset.mode); return; }
