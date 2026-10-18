@@ -155,6 +155,7 @@ function settings(){
 }
 
 function render(scroll = true) {
+  const enteringPostGame=view==='career'&&S?.career&&S.stage==='result'&&!!document.querySelector('.auto-broadcast');
   const oldFeed=$('.auto-broadcast .broadcast-feed'),oldFeedTop=oldFeed?.scrollTop;
   PageFolds.remember($('#content'));
   const club=S?.career?clubName(S.career.tier,S.career.teamId,S.career.teams.find(t=>t.id===S.career.teamId).name):'江岚中学';$('.sidebar-bottom>b').textContent=club;$('.school-seal').innerHTML=S?.career?clubMark(S.career.tier,S.career.teamId,club):esc(Array.from(club)[0]);
@@ -164,7 +165,7 @@ function render(scroll = true) {
   const pages = {season:careerSeasonView,opportunities:careerOpportunitiesView, welcome, create: creation, team, album, guide, settings, career: () => S.stage === 'arrival' || S.stage === 'introFeedback' ? arrival() : S.stage === 'match' ? match() : S.stage === 'result' ? result() : home() };
   $('#content').innerHTML = `<div class="page-enter">${pages[view]()}</div>`;
   PageFolds.enhance($('#content'),view,S);
-  if (scroll) window.scrollTo({ top: 0, behavior: 'instant' });
+  if (scroll||enteringPostGame) window.scrollTo({ top: 0, behavior: 'instant' });
   const feed=$('.auto-broadcast .broadcast-feed');if(feed){feed.style.scrollBehavior='auto';feed.scrollTop=oldFeedTop??feed.scrollHeight;feed.style.scrollBehavior='';feed.scrollTo({top:feed.scrollHeight,behavior:oldFeedTop===undefined||window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});}
   matchFlow.sync();
 }
@@ -214,7 +215,7 @@ function processAction(el) {
   if (a === 'home') {const opportunity=S.lastReport?.league&&!S.lastReport.league.official&&S.lastReport.league.kind!=='assessment';changed=H.goHome(S);if(changed&&opportunity)view='opportunities';}
   if (a === 'train') { const before=CareerGuide.trainingSnapshot(S,H);changed = H.train(S, el.dataset.value); scroll = false; if (changed){if(before)rememberTrainingFeedback(before);else toast(S.lastTraining);} }
   if (a === 'weekly') changed=H.beginHighlights(S,'weekly');
-  if (changed) { save(); render(scroll); if(a==='enroll')$('.league-panel')?.scrollIntoView({block:'start',behavior:'instant'}); if(a==='train'&&S.career)revealTrainingFeedback(); if(a==='train'&&H.storyScene(S))$('#story-panel')?.scrollIntoView({block:'start',behavior:'instant'}); if (innerWidth <= 880 && ['choose', 'next'].includes(a) && S.stage === 'match') $('.decision-panel').scrollIntoView({block:'start', behavior:'instant'}); }
+  if (changed) { save(); render(scroll); if(a==='enroll')$('.league-panel')?.scrollIntoView({block:'start',behavior:'instant'}); if(a==='home'&&S.career&&view==='career'&&el.dataset.trainingTarget)revealTrainingProject(el.dataset.trainingTarget); if(a==='train'&&S.career)revealTrainingFeedback(); if(a==='train'&&H.storyScene(S))$('#story-panel')?.scrollIntoView({block:'start',behavior:'instant'}); if (innerWidth <= 880 && ['choose', 'next'].includes(a) && S.stage === 'match') $('.decision-panel').scrollIntoView({block:'start', behavior:'instant'}); }
 }
 
 function practiceMenu(){

@@ -2,13 +2,46 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.CareerGuide=api;})(typeof globalThis!=='undefined'?globalThis:this,function(){
  'use strict';
  const focus={guard:['pass','handle','shot'],wing:['shot','drive','defense'],big:['rebound','body','defense']};
+ function matchTraining(s,H){
+  const r=s.lastReport,G=H.Growth,preferred=focus[s.player.role];
+  if(!r?.league||r.league.season!==s.career.year||r.league.teamId!==s.career.teamId)return null;
+  const st=r.stats,issues=[];
+  if(r.minutes>0){
+   if(st.turnovers>=3)issues.push({id:'handle',why:'本场 '+st.turnovers+' 次失误，下一次练控球，先把球护稳。'});
+   if(st.attempts>=3&&st.made/st.attempts<.4)issues.push({id:s.player.role==='big'?'drive':'shot',why:'本场投篮 '+st.made+' / '+st.attempts+'，先练'+(s.player.role==='big'?'篮下终结':'出手时机')+'，再把命中率找回来。'});
+   const boardLost=(r.records||[]).some(x=>x.execution?.mode==='rebound'&&x.execution.events?.some(e=>e.kind==='rebound'&&e.actor==='opponent')&&!x.execution.events?.some(e=>e.kind==='rebound'&&e.actor==='player'));
+   if(boardLost||s.player.role==='big'&&r.minutes>=12&&st.rebounds===0)issues.push({id:'rebound',why:boardLost?'争板片段里，篮板被对手收走。下一次练卡位和起跳。':'本场出场 '+r.minutes.toFixed(1)+' 分钟，未抢到篮板。下一次重点练卡位和起跳。'});
+   if(st.fouls>=3)issues.push({id:'defense',why:'本场 '+st.fouls+' 次犯规，下一次练跟防，减少失位后的扑抢。'});
+   if(s.player.role==='guard'&&r.minutes>=12&&st.assists===0)issues.push({id:'pass',why:'本场还没有助攻。下一次练传球，争取把机会送到队友手里。'});
+  }
+  const issue=issues.find(x=>s.player.attrs[x.id]<96);
+  if(issue)return {...issue,evidence:true};
+  const id=[...preferred].sort((a,b)=>s.player.attrs[a]-s.player.attrs[b]).concat(G.keys).find(k=>s.player.attrs[k]<96);
+  if(!id)return {id:null,why:'各项能力已达上限，保持状态，准备下一场。',evidence:false};
+  return {id,why:r.minutes===0?'本场未出场。先练'+H.attrs[id]+'，继续争取轮换机会。':issues.length?'本场需要打磨的专项已练满，下一次补强'+H.attrs[id]+'，再到球场检验。':'这场没有明显短板，下一次继续打磨'+H.attrs[id]+'。',evidence:false};
+ }
+ function matchFeedback(s,H){
+  const r=s.lastReport,g=r.growthReward,recommendation=matchTraining(s,H),G=H.Growth,q={...s,stage:'home'};
+  const spent=Number.isFinite(r.energySpent)&&r.energySpent>=0?r.energySpent:null;
+  const energyBefore=s.stage==='result'&&spent!==null&&s.energy+spent<=100?s.energy+spent:null;
+  const reward=g?g.total:r.league.official?null:0;
+  let rewardNote=g?'表现 '+g.base+' 点 · 职责 '+g.bonus+' 点':r.league.official?'旧记录未保存本场奖励':'本次不发放训练点';
+  if(g?.development&&r.minutes===0)rewardNote='本场未出场，已有奖励进度保留';
+  else if(g?.development)rewardNote=(g.total===0?'本场未兑换整点。':'')+'表现累计 '+Math.floor(g.development.baseCarry/g.development.rate[1]*100)+'% · 职责累计 '+Math.floor(g.development.bonusCarry/g.development.rate[1]*100)+'%';
+  const opportunity=!r.league.official&&r.league.kind!=='assessment';
+  const recover=s.energy<60&&G.preview(q,'rest').available,target=recover?'rest':recommendation?.id;
+  const canTrain=target&&G.preview(q,target).available;
+  const action={type:'home',label:opportunity?'回到球队，查看机会':recover?'回到球队，先恢复':canTrain?'回到球队，练'+H.attrs[target]:'回到训练与下一场',target:!opportunity?target:null};
+  const note=opportunity?'本次考核已记录，先查看球队机会。':recover?'精力偏低，先恢复，再安排专项。':s.growth.used>=2?'本周安排已用完，先完成赛程；下周优先练这项。':target&&!canTrain?G.preview(q,target).reason+'；先回到球队安排下一步。':'回队后还可安排 '+(2-s.growth.used)+' 次训练。';
+  return {recommendation,reward,rewardNote,tpBefore:g&&s.stage==='result'&&s.growth.tp>=g.total?s.growth.tp-g.total:null,tpAfter:s.growth.tp,energyBefore,energyAfter:s.energy,spent,action,note,roleFrom:g?G.roles[g.oldRole].name:null,roleTo:g?G.roles[g.newRole].name:G.role(s).name};
+ }
  function training(s,H){
-  const q={...s,stage:'home'},G=H.Growth,r=s.lastReport,keys=focus[s.player.role];let id;
+  const q={...s,stage:'home'},G=H.Growth,review=matchTraining(s,H),keys=focus[s.player.role];let id;
   if(s.energy<60&&G.preview(q,'rest')?.available)return {id:'rest',label:'先恢复精力',why:'先把体力找回来，下一场的脚步和出手才稳。',preview:G.preview(q,'rest')};
-  if(r?.league?.season===s.career.year&&r.league.teamId===s.career.teamId){if(r.stats.turnovers>=3)id='handle';else if(r.stats.attempts>=3&&r.stats.made/r.stats.attempts<.4)id=s.player.role==='big'?'drive':'shot';}
+  id=review?.id;
   const candidates=[...new Set([id,...keys.slice().sort((a,b)=>s.player.attrs[a]-s.player.attrs[b]),...H.Growth.keys])].filter(Boolean);
   id=candidates.find(k=>G.preview(q,k)?.available);if(!id)return null;
-  return {id,label:G.preview(q,id).name,why:id==='handle'&&r?.stats.turnovers>=3?'上一场失误偏多，先把球护稳。':id==='shot'&&r?.stats.attempts>=3&&r.stats.made/r.stats.attempts<.4?'上一场出手不够稳，下一场把时机找回来。':'先练好一项拿手本领，再到比赛里检验。',preview:G.preview(q,id)};
+  return {id,label:G.preview(q,id).name,why:id===review?.id?review.why:'先练好一项拿手本领，再到比赛里检验。',preview:G.preview(q,id)};
  }
  function trainingSuggestions(s,H){
   const G=H.Growth,primary=training(s,H),preferred=focus[s.player.role]||G.keys;
@@ -85,5 +118,5 @@
   const note=c.pending?'这份合同已签妥，进入下一季后完成注册。':c.tier==='nba'?'角色由正式比赛中的持续表现逐步调整，不需要为晋升重新签约。':'达到考察条件后仍需获得邀请、通过考核并签约注册。';
   return {note,stage:tierNames[c.tier],step,goal,reason,checks,title,detail,action,training:t,duty:G.duty(s).label,fixture:f};
  }
- return {describe,training,trainingSuggestions,trainingSnapshot,trainingFeedback};
+ return {describe,training,trainingSuggestions,trainingSnapshot,trainingFeedback,matchTraining,matchFeedback};
 });
