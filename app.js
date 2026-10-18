@@ -186,6 +186,7 @@ function processAction(el) {
   if (a === 'nav') { const v = el.dataset.view;if(['season','opportunities'].includes(v)&&(!S?.career||!S.placement))return; if (v === 'career') { view = S ? 'career' : 'welcome'; } else if (['team', 'album'].includes(v) && !S?.placement) return; else view = v; render(); return; }
   if (a === 'create') { if (S) modal('给新的少年留个位置？', '新建时会先下载当前生涯的备份，再打开建角页。只有确认新角色时，才会替换当前进度。', () => { downloadSave(); createView(); }, '备份并创建'); else createView(); return; }
   if(a==='load-legacy'||a==='load-growth'||a==='load-season'){try{const raw=localStorage.getItem(a==='load-legacy'?LEGACY_KEY:a==='load-season'?SEASON_KEY:KEY),next=raw&&H.restore(JSON.parse(raw));if(!next){toast('尚无可读取的对应版本存档。');return;}S=next;save();view='career';render();}catch(_){toast('这份存档暂时无法读取，请保留备份。');}return;}
+  if(a==='training-dismiss'){latestTrainingFeedback=null;render(false);document.querySelector('.career-training')?.scrollIntoView({block:'start',behavior:'instant'});return;}
   if (a === 'practice') { practiceMenu(); return; }
   if (a === 'practice-mode') { $('#dialog').close(); practiceMode(el.dataset.mode); return; }
   if (a === 'practice-close') { $('#dialog').close(); return; }
@@ -199,7 +200,7 @@ function processAction(el) {
   if(a==='flow-next'||a==='flow-skip'||a==='flow-quick'){const done=a==='flow-next'?H.advanceHighlights(S):a==='flow-skip'?H.skipHighlight(S):H.simulateHighlights(S);if(done){save();render(a==='flow-next');}return;}
   if(processCareerAction(el))return;
   if(a==='migrate'){if(S.stage==='match'){toast('请先完成当前比赛，再接入成长版。');return;}modal('接入训练成长版？','保留旧版原始存档和全部历史。新版本提供 6 点训练资源，取消固定对白门槛；先从校队训练和比赛继续，也可以开启完整赛季。',()=>{const next=H.migrate(S);if(next){downloadSave();S=next;save();view='career';render();}},'备份并接入');return;}
-  if(a==='run-plan'){if(H.Growth.runPlan(S)){save();render(false);toast(S.lastTraining);}else toast(H.Growth.preview(S,S.growth.plan[S.growth.used]||'rest')?.reason||'本周安排已完成');return;}
+  if(a==='run-plan'){const before=CareerGuide.trainingSnapshot(S,H);if(H.Growth.runPlan(S)){rememberTrainingFeedback(before);save();render(false);if(before)revealTrainingFeedback();else toast(S.lastTraining);}else toast(H.Growth.preview(S,S.growth.plan[S.growth.used]||'rest')?.reason||'本周安排已完成');return;}
   if(a==='equip'){if(H.Growth.equip(S,el.dataset.value)){save();render(false);}return;}
   if(a==='story-choice'){if(H.storyChoose(S,Number(el.dataset.index),el.dataset.storyId)){save();render(false);$('#story-panel')?.scrollIntoView({block:'start',behavior:'instant'});}return;}
   if(a==='story-next'){if(H.storyAdvance(S)){save();render(false);if($('#story-panel'))$('#story-panel').scrollIntoView({block:'start',behavior:'instant'});else window.scrollTo({top:0,behavior:'instant'});}return;}
@@ -211,9 +212,9 @@ function processAction(el) {
   if (a === 'choose') { const pending=H.startPlay(S,Number(el.dataset.index)); if(pending){save();render(false);launchCourt(pending);}return; }
   if (a === 'next') changed = H.next(S);
   if (a === 'home') {const opportunity=S.lastReport?.league&&!S.lastReport.league.official&&S.lastReport.league.kind!=='assessment';changed=H.goHome(S);if(changed&&opportunity)view='opportunities';}
-  if (a === 'train') { changed = H.train(S, el.dataset.value); scroll = false; if (changed) toast(S.lastTraining); }
+  if (a === 'train') { const before=CareerGuide.trainingSnapshot(S,H);changed = H.train(S, el.dataset.value); scroll = false; if (changed){if(before)rememberTrainingFeedback(before);else toast(S.lastTraining);} }
   if (a === 'weekly') changed=H.beginHighlights(S,'weekly');
-  if (changed) { save(); render(scroll); if(a==='enroll')$('.league-panel')?.scrollIntoView({block:'start',behavior:'instant'}); if(a==='train'&&H.storyScene(S))$('#story-panel')?.scrollIntoView({block:'start',behavior:'instant'}); if (innerWidth <= 880 && ['choose', 'next'].includes(a) && S.stage === 'match') $('.decision-panel').scrollIntoView({block:'start', behavior:'instant'}); }
+  if (changed) { save(); render(scroll); if(a==='enroll')$('.league-panel')?.scrollIntoView({block:'start',behavior:'instant'}); if(a==='train'&&S.career)revealTrainingFeedback(); if(a==='train'&&H.storyScene(S))$('#story-panel')?.scrollIntoView({block:'start',behavior:'instant'}); if (innerWidth <= 880 && ['choose', 'next'].includes(a) && S.stage === 'match') $('.decision-panel').scrollIntoView({block:'start', behavior:'instant'}); }
 }
 
 function practiceMenu(){

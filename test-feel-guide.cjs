@@ -30,6 +30,19 @@ for(const role of ['guard','wing','big']){
 }
 {const s=player();s.lastReport.league={...s.lastReport.league,season:s.career.year,teamId:s.career.teamId};s.lastReport.stats.turnovers=4;
  eq(D.trainingSuggestions(s,H)[0].id,'handle','recent turnovers prioritise ball control');}
+function receipt(s,act){const before=D.trainingSnapshot(s,H);ok(act());const packed=JSON.stringify(H.snapshot(s)),d=D.trainingFeedback(before,s,H);eq(JSON.stringify(H.snapshot(s)),packed,'building feedback never changes or resettles the save');return d;}
+{const s=player('wing');s.energy=90;s.growth.tp=20;s.growth.used=0;const p=H.Growth.preview(s,'shot'),from=s.player.attrs.shot;
+ const d=receipt(s,()=>H.train(s,'shot'));eq(d.cells.find(c=>c.label==='投篮能力').to,String(from+p.gain));eq(d.cells.find(c=>c.label==='投篮累计进度').to,'直接提升');eq(d.cells.find(c=>c.label==='精力').from,'90');eq(d.cells.find(c=>c.label==='精力').to,'80');eq(d.cells.find(c=>c.label==='训练点').to,String(20-p.spent));eq(d.next.action.type,'train');}
+{const s=player();s.energy=65;s.growth.used=0;s.growth.tp=20;const d=receipt(s,()=>H.train(s,'shot'));eq(d.next.action.value,'rest','post-training fatigue recommends a possible recovery');}
+{const s=player();s.energy=32;s.growth.used=0;const d=receipt(s,()=>H.train(s,'rest'));eq(d.title,'恢复完成');eq(d.cells.find(c=>c.label==='精力').to,'56');eq(d.cells.find(c=>c.label==='能力').to,'保持不变');eq(d.next.action.value,'rest');}
+{const s=player();s.energy=50;s.growth.used=1;s.growth.tp=20;const d=receipt(s,()=>H.train(s,'shot'));eq(d.left,0);ok(d.next.action.type!=='train','spent arrangements never offer an impossible training or recovery');}
+{const s=player();s.player.attrs.shot=89;s.growth.progress={shot:9};s.growth.tp=5;s.growth.used=0;
+ const d=receipt(s,()=>H.train(s,'shot')),progress=d.cells.find(c=>c.label==='投篮累计进度');eq(progress.from,'9 / 10');eq(progress.to,'4 / 18');ok(progress.note.includes('已提升 1 级'),'redeemed progress is explained as an upgrade, not negative growth');eq(d.cells.find(c=>c.label==='投篮能力').to,'90');}
+{const s=player();s.player.attrs.shot=95;s.growth.progress={shot:27};s.growth.tp=5;s.growth.used=0;
+ const d=receipt(s,()=>H.train(s,'shot'));eq(d.cells.find(c=>c.label==='投篮能力').to,'96');eq(d.cells.find(c=>c.label==='投篮累计进度').to,'已达上限');eq(d.cells.find(c=>c.label==='训练点').note,'本次花费 1 点');}
+{const s=player();s.growth.plan=['shot','pass'];s.growth.tp=20;s.growth.used=0;s.energy=100;
+ const d=receipt(s,()=>H.Growth.runPlan(s));eq(d.used,2);eq(d.left,0);ok(d.cells.some(c=>c.label==='投篮能力')&&d.cells.some(c=>c.label==='传球能力'));eq(d.cells.find(c=>c.label==='精力').to,'80');}
+{const s=player(),before=D.trainingSnapshot(s,H);eq(D.trainingFeedback(before,s,H),null,'failed or repeated actions cannot show a new completion');}
 const frozen=['qa/v0.23-public-before.json','qa/v0.23-goal-flight.json',...fs.existsSync('qa/v021-compat')?fs.readdirSync('qa/v021-compat').map(n=>'qa/v021-compat/'+n):[]].filter(p=>fs.existsSync(p));
 for(const file of frozen){const packed=JSON.parse(fs.readFileSync(file)),s=H.restore(packed);ok(s);eq(H.snapshot(s),packed,'old save is unchanged');guide(s);if(s.match?.play?.model){const q=C.restore(s.match.play.model);ok(q);eq(q,s.match.play.model,'old court keeps original timings');}}
 for(const [path,stage] of [['qa/v0.24-nba-home.json','NBA'],['qa/full-cba-home.json','CBA']])if(fs.existsSync(path)){const q=H.restore(JSON.parse(fs.readFileSync(path)));ok(q);const d=guide(q);eq(d.stage,stage);if(stage==='NBA'){ok(d.checks.some(x=>x.label==='本队有效出场'));ok(d.note.includes('不需要'));}else ok(d.goal.includes('NBA'));}

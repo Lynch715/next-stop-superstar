@@ -19,6 +19,32 @@
   const selected=(available.length?available:ranked.filter(id=>s.player.attrs[id]<96)).slice(0,2);
   return selected.map((id,i)=>({id,reason:id==='rest'?'补足精力，准备下一次上场。':id==='tactics'?'跑一遍配合，增加球队默契。':id==='study'?'看比赛录像，磨练专项熟练度。':i===0&&primary?.id===id&&!primary.why.startsWith('先练好')?primary.why:i===0?H.roles[s.player.role].name+' · '+G.effects[id]:H.attrs[id]+'是当前打法的重点，继续补强。'}));
  }
+ function trainingSnapshot(s,H){
+  if(!s?.career||!s.growth)return null;
+  return {week:s.week,year:s.career.year,team:s.career.teamId,phase:s.career.phase,round:s.career.round,matches:s.matches.length,attrs:{...s.player.attrs},progress:{...s.growth.progress},needs:Object.fromEntries(H.Growth.keys.map(k=>[k,H.Growth.cost(s,s.player.attrs[k])])),practice:{...s.growth.practice},energy:s.energy,tp:s.growth.tp,used:s.growth.used,bond:s.bond,count:s.training.length};
+ }
+ function trainingFeedback(before,s,H){
+  if(!before||s.growth.used<=before.used)return null;
+  const G=H.Growth,ids=s.training.slice(before.count),changed=G.keys.filter(k=>ids.includes(k)||s.player.attrs[k]!==before.attrs[k]),cells=[];
+  for(const id of changed){
+   const from=before.attrs[id],to=s.player.attrs[id],gain=to-from,bank=before.progress[id]||0,left=s.growth.progress?.[id]||0;
+   cells.push({label:H.attrs[id]+'能力',from:String(from),to:String(to),note:gain?'能力 +'+gain:'能力未提升',kind:gain?'gain':'neutral'});
+   const advanced=from>=85||to>=85,need=to<96?G.cost(s,to):0;
+   cells.push({label:H.attrs[id]+'累计进度',from:from>=85?bank+' / '+before.needs[id]:'无需累计',to:to>=96?'已达上限':advanced?left+' / '+need:'直接提升',note:gain&&advanced?'已提升 '+gain+' 级'+(need?'，剩余进度保留':''):advanced?'本次累计 +'+(left-bank):'本阶段直接增加能力',kind:advanced&&!gain&&left>bank?'gain':'neutral'});
+  }
+  if(!changed.length){
+   if(ids.includes('tactics'))cells.push({label:'球队默契',from:String(before.bond),to:String(s.bond),note:'默契 +'+(s.bond-before.bond),kind:s.bond>before.bond?'gain':'neutral'});
+   if(ids.includes('study')){const id=s.growth.plan.find(k=>G.keys.includes(k))||'defense';cells.push({label:H.attrs[id]+'熟练度',from:String(before.practice[id]||0),to:String(s.growth.practice[id]||0),note:'熟练度不直接增加属性',kind:'gain'});}
+   if(!cells.length)cells.push({label:'能力',from:'',to:'保持不变',note:'恢复不增加体能属性',kind:'neutral'});
+   cells.push({label:'累计进度',from:'',to:'全部保留',note:'各项能力累计进度不变',kind:'neutral'});
+  }
+  const energy=s.energy-before.energy,spent=before.tp-s.growth.tp;
+  cells.push({label:'精力',from:String(before.energy),to:String(s.energy),note:ids.length>1&&energy?'合计 '+(energy>0?'+':'')+energy:energy>0?'恢复 +'+energy:energy<0?'消耗 '+(-energy):'精力不变',kind:energy>0?'gain':energy<0?'cost':'neutral'});
+  cells.push({label:'训练点',from:String(before.tp),to:String(s.growth.tp),note:spent?'本次花费 '+spent+' 点':'未消耗训练点',kind:spent?'cost':'neutral'});
+  const next=describe(s,H),action={...next.action};
+  if(action.type==='train')action.label=action.value==='rest'?'恢复精力':'继续练'+H.attrs[action.value];
+  return {title:ids.length===1&&ids[0]==='rest'?'恢复完成':'训练完成',projects:ids.map(id=>G.preview(s,id).name).join(' · '),cells,used:s.growth.used-before.used,left:2-s.growth.used,next:{title:next.title,detail:next.detail,action}};
+ }
  function describe(s,H){
   if(!s?.career||!s.growth||s.career.phase==='retired')return null;
   const L=H.League,c=s.career,G=H.Growth,P=L.Path,a=L.samples(s),r=G.role(s),f=L.describe(s),t=training(s,H),checks=[];
@@ -59,5 +85,5 @@
   const note=c.pending?'这份合同已签妥，进入下一季后完成注册。':c.tier==='nba'?'角色由正式比赛中的持续表现逐步调整，不需要为晋升重新签约。':'达到考察条件后仍需获得邀请、通过考核并签约注册。';
   return {note,stage:tierNames[c.tier],step,goal,reason,checks,title,detail,action,training:t,duty:G.duty(s).label,fixture:f};
  }
- return {describe,training,trainingSuggestions};
+ return {describe,training,trainingSuggestions,trainingSnapshot,trainingFeedback};
 });
