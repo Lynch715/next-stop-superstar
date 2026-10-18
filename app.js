@@ -194,6 +194,7 @@ function processAction(el) {
   if (a === 'export') { downloadSave(); toast('生涯备份已开始下载。'); return; }
   if (a === 'import') { $('#import-file').click(); return; }
   if (!S) return;
+  if(a==='guide-panel'){view='opportunities';render();const key='opportunities:'+el.dataset.focus;const panel=[...document.querySelectorAll('details[data-fold-key]')].find(d=>d.dataset.foldKey===key);if(panel){panel.open=true;panel.scrollIntoView({block:'start',behavior:'smooth'});}return;}
   if(a==='flow-pause'&&S.match?.highlights){S.match.highlights.playbackPaused=!S.match.highlights.playbackPaused;save();render(false);return;}
   if(a==='flow-next'||a==='flow-skip'||a==='flow-quick'){const done=a==='flow-next'?H.advanceHighlights(S):a==='flow-skip'?H.skipHighlight(S):H.simulateHighlights(S);if(done){save();render(a==='flow-next');}return;}
   if(processCareerAction(el))return;
@@ -223,7 +224,7 @@ function practiceMenu(){
 $('#dialog').addEventListener('close',()=>$('#dialog').classList.remove('practice-picker'));
 function practiceMode(mode){
   if(!Object.hasOwn(BasketCourt.modes,mode))return;
-  const config={mode,liveMatch:true,matchSeconds:120,baseScore:[0,0],seed:Date.now()>>>0,skill:65,energy:100,bond:S?.bond??30,stamina:S?.player.attrs.stamina??55,number:S?.player.number??7,role:'wing',points:2,decision:3};
+  const config={mode,liveMatch:true,matchSeconds:120,baseScore:[0,0],seed:Date.now()>>>0,skill:65,energy:100,bond:S?.bond??30,stamina:S?.player.attrs.stamina??55,number:S?.player.number??7,role:S?.player.role||'wing',...(S?.growth?{attributes:{...S.player.attrs},perks:[...S.growth.equipped]}:{}),points:2,decision:3};
   CourtUI.open({config,practice:true,title:BasketCourt.modes[mode].title,onMenu:practiceMenu});
 }
 function launchCourt(pending,automatic=false){

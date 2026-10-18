@@ -3,7 +3,7 @@
   'use strict';
   const keys=['shot','drive','pass','handle','rebound','defense','body','stamina'];
   const labels={shot:'投篮',drive:'突破',pass:'传球',handle:'控球',rebound:'篮板',defense:'防守',body:'对抗',stamina:'体能'};
-  const effects={shot:'提升出手稳定性',drive:'练好突破和篮下终结',pass:'传得更准，配合更顺',handle:'护好球，变向更稳',rebound:'抢占位置，拿下篮板',defense:'跟紧对手，干扰出手',body:'站稳掩护，扛住对抗',stamina:'减少消耗，保持状态'};
+  const effects={shot:'投篮绿区更宽，松手更从容',drive:'突破启动更快，篮下终结更稳',pass:'出球更快，顺下接球更容易',handle:'持球脚步更快，护球更稳',rebound:'争板范围更大，起跳时机更宽',defense:'跟防更快，抢断和封盖时机更宽',body:'掩护更快站稳，卡位更有力',stamina:'疲劳时更能保持脚步和手感'};
   const weights={guard:{pass:.25,handle:.25,shot:.15,drive:.15,defense:.1,stamina:.1},wing:{shot:.25,drive:.25,defense:.2,handle:.1,body:.1,stamina:.1},big:{rebound:.25,defense:.25,body:.25,shot:.1,stamina:.1,pass:.05}};
   const perks={
     catchShoot:{name:'接球投手',attr:'shot',need:70,practice:8,text:'接球后 3 秒内，空位出手窗口扩大 12%'},

@@ -19,6 +19,21 @@
   const dist = (a,b) => Math.hypot(a.x-b.x,a.y-b.y);
   const mix = (a,b,t) => a+(b-a)*t;
   const copy = x => JSON.parse(JSON.stringify(x));
+  // Older in-flight saves retain their original timing until the next court entry.
+  const tuned=s=>s.config.controlVersion===1&&!!s.config.attributes;
+  function controls(s){
+    const modern=tuned(s),a=k=>ability(s,k);
+    return {modern,passSpeed:modern?440+a('pass')*3:480+a('pass')*1.6,
+      boardReach:(42+a('rebound')*.4+(s.boxTime>=.24&&dist(s.p,s.landing)<85&&perk(s,'board')?8:0))*tired(s),
+      jumpBuffer:modern?.10+a('rebound')*.0015:0,
+      screenSet:modern?.88-a('body')*.004:.8*(1-(a('body')-55)*.003),
+      screenReach:modern?40+a('body')*.1:40,rollReach:modern?12+a('pass')*.16:8,
+      stealReach:(s.config.attributes?30+a('defense')*.15:38)*tired(s),
+      stealHeight:modern?29+a('defense')*.12:30,stealCooldown:modern?1.2-a('defense')*.004:1.1,
+      blockEnd:modern?.65+a('defense')*.0012:.65,
+      dribbleRadius:s.config.attributes?clamp((modern?43:40)-a('handle')*(modern?.18:.11),modern?26:28,40)*(perk(s,'ballHandler')?.92:1):34};
+  }
+  function defenseCue(s){const c=controls(s),p=s.defenders[s.run?.carrier??0],gap=dist(s.p,p);return {gap,reach:c.stealReach,ready:gap<c.stealReach&&s.ball.z<c.stealHeight&&s.t>=(s.run?.stealAt||0)};}
   function segment(p,a,b) { const dx=b.x-a.x,dy=b.y-a.y, q=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1),0,1); return Math.hypot(p.x-a.x-q*dx,p.y-a.y-q*dy); }
   const statKeys=['points','assists','rebounds','steals','blocks','turnovers','fouls','made','attempts'];
   const emptyStats=()=>Object.fromEntries(statKeys.map(k=>[k,0]));
@@ -26,7 +41,7 @@
   const mateName=(s,i)=>(s.config.teammates||names)[i];
   function create(config) {
     if(!config||!Object.hasOwn(modes,config.mode))throw Error('未知球场项目');
-    config=copy(config);for(const [k,d,max] of [['skill',55,96],['energy',80,100],['bond',30,100],['stamina',55,96]])config[k]=clamp(Number.isFinite(config[k])?config[k]:d,0,max);
+    config=copy(config);if(config.attributes&&config.controlVersion===undefined)config.controlVersion=1;for(const [k,d,max] of [['skill',55,96],['energy',80,100],['bond',30,100],['stamina',55,96]])config[k]=clamp(Number.isFinite(config[k])?config[k]:d,0,max);
     if(config.attributes&&Number.isFinite(config.attributes.stamina))config.stamina=config.attributes.stamina;
     config.seed=Number.isInteger(config.seed)?config.seed>>>0:1;config.number=Number.isInteger(config.number)&&config.number>=0&&config.number<=99?config.number:7;config.role=['guard','wing','big'].includes(config.role)?config.role:'wing';
     const mode=config.mode,p={x:mode==='screen'?305:450,y:mode==='rebound'?320:mode==='screen'?410:mode==='drive'?440:mode==='defense'?240:mode==='shot'&&config.points===3?440:mode==='shot'&&config.role==='big'?235:365,z:0};
@@ -46,7 +61,7 @@
     if(s.owner==='mate'&&s.carrierPos){Object.assign(s.mates[s.carrier],s.carrierPos);}
     if(s.flow==='rebound')s.ai.boardResolved=false;
   }
-  function passDuration(s,range=300){if(s.run)return clamp(range/(s.config.attributes?480+ability(s,'pass')*1.6:560),.40,1.5)*(1-(s.config.bond-30)*.001)/(perk(s,'playmaker')&&s.screenUntil>s.t?1.12:1);return clamp(.66*(1-(s.config.bond-30)*.002),.48,.73);}
+  function passDuration(s,range=300){if(s.run||tuned(s))return clamp(range/(s.config.attributes?controls(s).passSpeed:560),tuned(s)?.28:.40,1.5)*(1-(s.config.bond-30)*.001)/(perk(s,'playmaker')&&s.screenUntil>s.t?1.12:1);return clamp(.66*(1-(s.config.bond-30)*.002),.48,.73);}
   function goal(a,p,job,speed=175){a.gx=clamp(p.x,100,800);a.gy=clamp(p.y,135,a.maxY||465);a.job=job;a.speed=speed;}
   function project(a,seconds){const d=Math.hypot(a.gx-a.x,a.gy-a.y),q=Math.min(1,(a.speed||175)*seconds/(d||1));return {x:mix(a.x,a.gx,q),y:mix(a.y,a.gy,q)};}
   function blockers(s,t){return s.defenders.map(a=>project(a,Math.max(0,t-s.t)));}
@@ -146,7 +161,7 @@
   }
   function reboundWindow(s){return (.22+ability(s,'rebound')*.003)*tired(s);}
   function contest(s,attempt=false){
-    const box=s.boxTime>=.24&&dist(s.p,s.landing)<85,gap=Math.abs(s.t-s.jumpAt),reach=(42+ability(s,'rebound')*.4+(box&&perk(s,'board')?8:0))*tired(s);
+    const box=s.boxTime>=.24&&dist(s.p,s.landing)<85,gap=Math.abs(s.t-s.jumpAt),reach=controls(s).boardReach;
     const candidates=[...s.mates.map((p,i)=>({owner:'mate',index:i,p,score:52+(s.config.seed+i*7)%17-dist(p,s.landing)})),...s.defenders.map((p,i)=>({owner:'opponent',index:i,p,score:54+(s.config.seed+i*11)%15-dist(p,s.landing)-(box&&dist(p,s.p)<90?(s.config.attributes?15+ability(s,'body')*.25+(perk(s,'board')?8:0):30):0)}))];
     if(attempt&&gap<reboundWindow(s)&&dist(s.p,s.landing)<reach)candidates.push({owner:'player',index:-1,p:s.p,score:reach-dist(s.p,s.landing)-gap*55+(box?(s.config.attributes?18+ability(s,'body')*.25:32):-10)});
     return candidates.sort((a,b)=>b.score-a.score)[0];
@@ -178,9 +193,10 @@
     const p=shooter(s),range=dist(p,hoop),pressure=Math.max(0,68-Math.min(...s.defenders.map(d=>dist(d,p))))/68;
     const player=s.owner==='player',skill=s.config.attributes?(player?(range<160?ability(s,'drive')*.65+ability(s,'body')*.35:ability(s,'shot')):58+s.config.bond*.08):s.config.skill;
     const contact=player&&range<160&&perk(s,'finisher')?pressure*.85:pressure;
-    let width=clamp(.20+skill/650-range/6500-contact*.07-(s.config.energy<(s.config.attributes?60:50)?.025*(1-(s.config.stamina-50)/100):0),.10,.33);
+    let width=clamp((tuned(s)?.18:.20)+skill/(tuned(s)?410:650)-range/6500-contact*(tuned(s)?.11:.07)-(s.config.energy<(s.config.attributes?60:50)?.025*(1-(s.config.stamina-50)/100):0),.10,tuned(s)?.39:.33);
     if(player&&perk(s,'catchShoot')&&s.catchAt!==undefined&&s.t-s.catchAt<=3&&pressure<.25)width*=1.12;
-    return {value:s.charging?(1-Math.cos((s.t-s.chargeAt)*Math.PI/1.3))/2:0,center:.64,width,range,pressure};
+    const period=tuned(s)?1.3+clamp((skill-30)/66,0,1)*.22:1.3;
+    return {value:s.charging?(1-Math.cos((s.t-s.chargeAt)*Math.PI/period))/2:0,center:.64,width,range,pressure};
   }
   function outcome(s,success,score,reason,extra={}){return {mode:s.config.mode,success,score:Math.round(clamp(score,0,100)),reason,finisher:'mate',foul:false,turnover:false,decision:clamp(s.config.decision??3,0,3),...extra};}
   function end(s,reason,extra={}){
@@ -214,7 +230,7 @@
     if(s.owner!=='mate')return false;
     if(s.flow!=='screen'){s.flow='screen';s.stage='position';s.plantTime=0;s.screenSpot={x:clamp(s.carrierPos.x+(s.carrierPos.x<450?75:-75),120,780),y:clamp(s.carrierPos.y+35,190,365)};notify(s,'移动到金色圈，为持球队友站稳掩护。');return true;}
     if(s.stage==='roll'){aim(s,s.rollSpot.x,s.rollSpot.y);notify(s,'正在顺下接应。接球后可自己投，也可继续传。');return true;}
-    if(dist(s.p,s.screenSpot)>40){notify(s,'先移动到金色掩护圈，再站稳。');return false;}
+    if(dist(s.p,s.screenSpot)>controls(s).screenReach){notify(s,'先移动到金色掩护圈，再站稳。');return false;}
     s.planted=!s.planted;s.plantTime=0;s.playerScreenContact=undefined;s.target=null;return true;
   }
   function press(s,act,value){
@@ -236,11 +252,13 @@
     }
     if(act==='return'&&s.owner==='mate'){
       const from={...s.mates[s.carrier],z:32},to={x:s.p.x+12,y:s.p.y,z:32},safe=true;
-      return fly(s,from,to,.55,14,outcome(s,safe,safe?85:25,safe?'回传到手，可以继续进攻。':'回传路线被对手切断。',{turnover:!safe}),'return');
+      return fly(s,from,to,tuned(s)?passDuration(s,dist(from,to)):.55,14,outcome(s,safe,safe?85:25,safe?'回传到手，可以继续进攻。':'回传路线被对手切断。',{turnover:!safe}),'return');
     }
     if(act==='plant')return beginScreen(s);
     if(act==='box'&&s.owner==='loose'){s.box=!s.box;return true;}
     if(act==='jump'&&s.owner==='loose'){
+      if(tuned(s)&&s.t<s.jumpAt-reboundWindow(s)&&s.t>=s.jumpAt-reboundWindow(s)-controls(s).jumpBuffer){s.jumpQueued=s.jumpAt-reboundWindow(s)+.015;notify(s,'准备起跳，盯住落点。');return true;}
+      delete s.jumpQueued;
       s.jumpTime=s.t;return reboundFlight(s,true);
     }
     if(act==='defend'&&s.flow==='defense'){
@@ -255,7 +273,7 @@
     if(s.owner==='loose'){const q=clamp((s.t-s.reboundAt)/(s.jumpAt-s.reboundAt),0,1);s.ball={x:mix(s.reboundFrom.x,s.landing.x,q),y:mix(s.reboundFrom.y,s.landing.y,q),z:mix(s.reboundFrom.z,60,q)+95*Math.sin(q*Math.PI)};}
     else {const p=s.owner==='mate'?s.mates[s.carrier]:s.owner==='opponent'?s.defenders[s.run?.carrier??0]:s.p;s.ball={x:p.x+16,y:p.y,z:s.charging?58:14+Math.abs(Math.sin(s.t*7))*24};}
   }
-  function live(s,owner){s.phase='playing';s.owner=owner;s.flow='shot';s.stage='aim';s.charging=false;s.release=null;s.planted=false;s.box=false;s.boxTime=0;s.p.z=0;s.flight=null;s.target=null;delete s.jumpTime;}
+  function live(s,owner){s.phase='playing';s.owner=owner;s.flow='shot';s.stage='aim';s.charging=false;s.release=null;s.planted=false;s.box=false;s.boxTime=0;s.p.z=0;s.flight=null;s.target=null;delete s.jumpTime;delete s.jumpQueued;}
   function miss(s,f){
     record(s,'miss',f.shooter.actor,f.result.reason+' 球还活着，跟进抢板！');s.lastPass=null;
     if(s.gameClock<=0){end(s,'终场哨响，最后一投弹筐而出。',{end:'clock'});return;}
@@ -307,7 +325,7 @@
     if(s.target){const d=dist(s.p,s.target);if(d<3)s.target=null;else{dx=(s.target.x-s.p.x)/d;dy=(s.target.y-s.p.y)/d;}}
     const moving=Math.hypot(dx,dy)>.01;
     if(s.planted&&moving){if(s.plantTime>.36&&s.plantTime<.75){s.stats.fouls++;grade(s,20,0);record(s,'foul','player','接触时仍在移动，被吹移动掩护。');end(s,'移动掩护犯规，球权交给对手。',{foul:true,end:'foul'});return;}s.planted=false;s.plantTime=0;}
-    const mag=Math.hypot(dx,dy)||1,speed=(155+(s.config.attributes?(s.owner==='opponent'?ability(s,'defense'):ability(s,'drive')):s.config.skill)*.7)*(s.owner==='player'&&perk(s,'ballHandler')?1.06:1)*(1-Math.max(0,65-s.config.energy)/(180+s.config.stamina*2))*(s.box?.65:1)*(s.charging?0:1)*(s.run?.containing?.82:1)*(input.analog?Math.min(1,mag):1);
+    const mag=Math.hypot(dx,dy)||1,speed=(155+(s.config.attributes?(s.owner==='opponent'?ability(s,'defense'):ability(s,'drive')):s.config.skill)*.7)*(tuned(s)&&s.owner==='player'?1+ability(s,'handle')*.0007:1)*(s.owner==='player'&&perk(s,'ballHandler')?1.06:1)*(1-Math.max(0,65-s.config.energy)/(180+s.config.stamina*2))*(s.box?.65:1)*(s.charging?0:1)*(s.run?.containing?.82:1)*(input.analog?Math.min(1,mag):1);
     if(moving){s.p.x=clamp(s.p.x+dx/mag*speed*dt,88,812);s.p.y=clamp(s.p.y+dy/mag*speed*dt,153,s.run?965:478);}
   }
   function substep(s,dt,input){
@@ -319,16 +337,17 @@
     if(s.phase==='flight'){s.p.z=s.flight.kind==='rebound'&&s.jumpTime!==undefined?48*Math.sin(Math.PI*clamp((s.t-s.phaseAt)/.5,0,1)):0;ball(s);if(s.run&&s.flight.kind==='oppPass')interceptAway(s);else if(s.phase==='flight')intercept(s);if(s.phase==='flight')finishFlight(s);if(s.phase==='flight'&&['pass','return','rollpass','oppPass'].includes(s.flight.kind)&&(s.clock<=0||s.gameClock<=0)){if(s.run&&s.flight.kind==='oppPass'){record(s,'turnover','opponent','对方传球时进攻超时。');const i=closest([s.p,...s.mates],s.ball);claim(s,'home',i===0?'player':'mate',i-1,'对方超时，我方发球。',true);return;}if(s.flight.kind==='pass')s.stats.turnovers++;record(s,'turnover','mate','传球尚未接稳，时间已经耗尽。');end(s,'时间耗尽，传球未能形成出手。',{turnover:true,end:'clock'});}return;}
     if(s.run&&s.owner==='opponent'){awayTick(s);ball(s);return;}
     if(s.flow==='screen'&&s.owner==='mate'){
-      if(s.planted&&dist(s.p,s.screenSpot)<42)s.plantTime+=dt;
-      if(s.stage==='position'&&s.plantTime>=(s.config.attributes?.body!==undefined?.8*(1-(ability(s,'body')-55)*.003):.8)&&(!s.config.attributes||s.playerScreenContact!==undefined&&s.t-s.playerScreenContact<1)){s.stage='roll';s.planted=false;s.cutAt=s.t;grade(s,95,3);record(s,'screen','player','掩护成功！向篮下绿色圆圈顺下，接球后继续处理。');}
-      if(s.stage==='roll'&&dist(s.p,s.rollSpot)<8){fly(s,{x:s.mates[s.carrier].x+12,y:s.mates[s.carrier].y,z:50},{x:s.p.x+12,y:s.p.y,z:32},.55,75,outcome(s,true,95,'顺下接到回传。'),'rollpass');ball(s);return;}
+      if(s.planted&&dist(s.p,s.screenSpot)<(tuned(s)?controls(s).screenReach+2:42))s.plantTime+=dt;
+      if(s.stage==='position'&&s.plantTime>=(s.config.attributes?controls(s).screenSet:.8)&&(!s.config.attributes||s.playerScreenContact!==undefined&&s.t-s.playerScreenContact<1)){s.stage='roll';s.planted=false;s.cutAt=s.t;grade(s,95,3);record(s,'screen','player','掩护成功！向篮下绿色圆圈顺下，接球后继续处理。');}
+      if(s.stage==='roll'&&dist(s.p,s.rollSpot)<controls(s).rollReach){fly(s,{x:s.mates[s.carrier].x+12,y:s.mates[s.carrier].y,z:50},{x:s.p.x+12,y:s.p.y,z:32},tuned(s)?passDuration(s,dist(s.mates[s.carrier],s.p)):.55,75,outcome(s,true,95,'顺下接到回传。'),'rollpass');ball(s);return;}
     }
     if(s.owner==='loose'){
       if(s.box&&dist(s.p,s.landing)<90)s.boxTime+=dt;
-      if(s.t>s.jumpAt+.3){reboundFlight(s);ball(s);return;}
+      if(s.jumpQueued!==undefined&&s.t>=s.jumpQueued){press(s,'jump');ball(s);return;}
+      if(s.t>s.jumpAt+(tuned(s)?Math.max(.3,reboundWindow(s)):.3)){reboundFlight(s);ball(s);return;}
     }
     if(s.flow==='drive'&&s.owner==='player'){
-      if(s.stage==='drive'&&dist(s.p,s.defenders[0])<(s.config.attributes?clamp(40-ability(s,'handle')*.11,28,40)*(perk(s,'ballHandler')?.92:1):34)){s.stats.turnovers++;record(s,'turnover','player','撞进防守人的正面，运球被断。');end(s,'突破被断，球权交给对手。',{turnover:true,end:'lost'});return;}
+      if(s.stage==='drive'&&dist(s.p,s.defenders[0])<controls(s).dribbleRadius){s.stats.turnovers++;record(s,'turnover','player','撞进防守人的正面，运球被断。');end(s,'突破被断，球权交给对手。',{turnover:true,end:'lost'});return;}
       if(s.stage==='drive'&&dist(s.p,hoop)<132){s.stage='aim';notify(s,'突破成功！可以投篮终结，也可以传球。');}
     }
     if(s.flow==='defense'&&!s.run){
@@ -360,7 +379,7 @@
   }
   function defenseSpot(s){const p=s.defenders[s.run?.carrier??0],g=s.run?awayHoop:hoop,d=dist(p,g)||1;return {x:clamp(p.x+(g.x-p.x)/d*48,90,810),y:clamp(p.y+(g.y-p.y)/d*48,153,s.run?965:478)};}
   function resetPlay(s){
-    s.phase='playing';s.flight=null;s.outcome=null;s.release=null;s.charging=false;s.planted=false;s.box=false;s.boxTime=0;s.p.z=0;s.lastPass=null;s.target=null;delete s.jumpTime;
+    s.phase='playing';s.flight=null;s.outcome=null;s.release=null;s.charging=false;s.planted=false;s.box=false;s.boxTime=0;s.p.z=0;s.lastPass=null;s.target=null;delete s.jumpTime;delete s.jumpQueued;
     s.ai.pickPhase='none';s.ai.pickIndex=-1;s.ai.nextThink=s.t;s.ai.nextPick=s.t+2.6;s.ai.cutUntil=s.t;s.ai.nextCut=s.t+.65;s.screenUntil=s.t;
     [...s.mates,...s.defenders].forEach(a=>{delete a.blockUntil;delete a.screenPoint;});
   }
@@ -455,13 +474,13 @@
     if(s.phase==='flight'){
       const f=s.flight;if(f.kind!=='oppShot'||s.t<s.run.blockAt)return false;s.run.blockAt=s.t+.8;
       const q=(s.t-s.phaseAt)/f.duration,near=dist(s.p,p)<(s.config.attributes?68+ability(s,'defense')*.4:90)||dist(s.p,awayHoop)<(105+(perk(s,'rim')&&s.p.y>=p.y&&s.p.y<=awayHoop.y+10?10:0));
-      if(near&&q>.08&&q<.65&&!f.result.blocked){f.result.success=false;f.result.blocked=true;f.result.reason='你封到了篮球！落点处准备收板。';s.stats.blocks++;grade(s,95,3);record(s,'block','player','封盖成功！篮球仍是活球，跟进抢板。');}else notify(s,'没碰到球，赶快准备争板。');return true;
+      if(near&&q>.08&&q<controls(s).blockEnd&&!f.result.blocked){f.result.success=false;f.result.blocked=true;f.result.reason='你封到了篮球！落点处准备收板。';s.stats.blocks++;grade(s,95,3);record(s,'block','player','封盖成功！篮球仍是活球，跟进抢板。');}else notify(s,'没碰到球，赶快准备争板。');return true;
     }
-    if(s.t<s.run.stealAt)return false;s.run.stealAt=s.t+1.1;
-    const gap=dist(s.p,p),low=s.ball.z<30;
-    if(gap<(s.config.attributes?30+ability(s,'defense')*.15:38)*tired(s)&&low){s.stats.steals++;grade(s,95,3);record(s,'steal','player','你切下篮球，反击机会来了！');fly(s,copy(s.ball),{x:s.p.x+12,y:s.p.y,z:32},.3,12,outcome(s,true,95,'抢断成功。'),'steal');}
+    if(s.t<s.run.stealAt)return false;s.run.stealAt=s.t+controls(s).stealCooldown;
+    const gap=dist(s.p,p),low=s.ball.z<controls(s).stealHeight;
+    if(gap<controls(s).stealReach&&low){s.stats.steals++;grade(s,95,3);record(s,'steal','player','你切下篮球，反击机会来了！');fly(s,copy(s.ball),{x:s.p.x+12,y:s.p.y,z:32},.3,12,outcome(s,true,95,'抢断成功。'),'steal');}
     else if(gap<32&&!low){s.stats.fouls++;grade(s,25,0);record(s,'foul','player','伸手碰到对手手臂，犯规。对方重新发球。');claim(s,'away','opponent',s.run.carrier,'防守犯规，对手边线发球继续。',true);}
-    else {grade(s,35,1);notify(s,gap>=38?'距离太远，先用脚步靠近持球人。':'对方把球护住了，等运球落低再伸手。');}return true;
+    else {grade(s,35,1);notify(s,gap>=controls(s).stealReach?'距离太远，先用脚步靠近持球人。':'对方把球护住了，等运球落低再伸手。');}return true;
   }
   function interceptAway(s){
     const f=s.flight;if(f.kind!=='oppPass')return;const receiver=s.defenders[f.result.opponentIndex],list=[s.p,...s.mates],i=list.findIndex(h=>dist(h,s.ball)<(h===s.p&&s.config.attributes?20+ability(s,'defense')*.08:24)&&s.ball.z<48&&dist(h,s.ball)+4<dist(receiver,s.ball));
@@ -475,6 +494,7 @@
   }
   function resultValid(r,receivers=names){return !!(r&&Object.hasOwn(modes,r.mode)&&typeof r.success==='boolean'&&Number.isFinite(r.score)&&r.score>=0&&r.score<=100&&typeof r.reason==='string'&&r.reason.length<1000&&['player','mate'].includes(r.finisher)&&typeof r.foul==='boolean'&&typeof r.turnover==='boolean'&&(r.points===undefined||[2,3].includes(r.points))&&(r.defensive===undefined||['steal','block','stop'].includes(r.defensive))&&(r.decision===undefined||Number.isInteger(r.decision)&&r.decision>=0&&r.decision<=3)&&(r.receiver===undefined||receivers.includes(r.receiver))&&receiptOK(r));}
   function valid(s){
+    if(s?.config?.controlVersion!==undefined&&![0,1].includes(s.config.controlVersion)||s?.jumpQueued!==undefined&&(!Number.isFinite(s.jumpQueued)||s.jumpQueued<0||s.owner!=='loose'))return false;
     if(!s||s.v!==2||!s.config||!Object.hasOwn(modes,s.config.mode)||!Object.hasOwn(modes,s.flow)||!['ready','playing','flight','done'].includes(s.phase)||!['player','mate','loose','opponent'].includes(s.owner)||typeof s.paused!=='boolean'||!Number.isFinite(s.t)||s.t<0||s.t>(s.config?.noDraw?86400:s.config?.liveMatch?1200:180))return false;
     const cfg=s.config;if(cfg.attributes!==undefined&&(!cfg.attributes||!attrKeys.every(k=>Number.isFinite(cfg.attributes[k])&&cfg.attributes[k]>=0&&cfg.attributes[k]<=96)))return false;if(cfg.perks!==undefined&&(!Array.isArray(cfg.perks)||cfg.perks.length>2||new Set(cfg.perks).size!==cfg.perks.length||!cfg.perks.every(k=>perkKeys.includes(k))))return false;if(cfg.noDraw!==undefined&&(typeof cfg.noDraw!=='boolean'||cfg.noDraw&&!cfg.liveMatch))return false;if(cfg.teamName!==undefined&&(typeof cfg.teamName!=='string'||!cfg.teamName.length||cfg.teamName.length>30))return false;if(cfg.teammates!==undefined&&(!Array.isArray(cfg.teammates)||cfg.teammates.length!==3||!cfg.teammates.every(n=>typeof n==='string'&&n.length>0&&n.length<=20)))return false;if(cfg.opposition!==undefined&&(!Number.isFinite(cfg.opposition)||cfg.opposition<1||cfg.opposition>1.4))return false;if(!['skill','energy','bond','stamina'].every(k=>Number.isFinite(cfg[k])&&cfg[k]>=0&&cfg[k]<=({skill:96,stamina:96}[k]||100))||!Number.isInteger(cfg.number)||cfg.number<0||cfg.number>99||!Number.isInteger(cfg.seed)||cfg.seed<0||cfg.seed>4294967295||!['guard','wing','big'].includes(cfg.role))return false;
     const point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&Math.abs(p.x)<2000&&Math.abs(p.y)<2000;
@@ -502,5 +522,5 @@
       if(s.phase==='done')return null;initAI(s,true);if(s.config.liveMatch)initRun(s,true);return valid(s)?s:null;
     }catch(_){return null;}
   }
-  return {W,H,FULL_H,hoop,awayHoop,defenseSpot,modes,highlightGoal,finishHighlight,create,restore,start,pause,aim,press,step,meter,reboundWindow,lanes,valid,resultValid,canMove,project,dist,segment,copy,clamp};
+  return {W,H,FULL_H,hoop,awayHoop,defenseSpot,defenseCue,controls,modes,highlightGoal,finishHighlight,create,restore,start,pause,aim,press,step,meter,reboundWindow,lanes,valid,resultValid,canMove,project,dist,segment,copy,clamp};
 });
