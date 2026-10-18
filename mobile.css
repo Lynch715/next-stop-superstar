@@ -183,3 +183,51 @@
  .court-session{grid-template-rows:44px 28px minmax(90px,1fr) 36px 34px 158px 24px;gap:4px}.court-objective{line-height:18px}
  .court-action-area{grid-template-rows:44px 52px 44px;gap:4px}.court-gauge{height:34px}.court-possession{line-height:24px}
 }
+
+/* Compact training summaries keep decisions visible while details stay optional. */
+.career-training{margin-top:22px;min-width:0}
+.career-training>.section-title{margin-bottom:8px}
+.training-budget{display:flex;gap:8px 18px;flex-wrap:wrap;margin:0 0 12px;color:#67735d;font-size:13px}
+.training-budget b{font-family:var(--numeric);font-weight:650;color:#40563a}
+.training-recommended,.training-other-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}
+.training-project{min-width:0;background:#fdfdf8;border:1px solid #dfe3d6;border-radius:11px;overflow:hidden}
+.training-project.is-recommended{border-color:#bac8a8;background:#f8faf2}
+.training-project>summary{position:relative;list-style:none;padding:12px 36px 12px 14px;cursor:pointer;min-height:76px}
+.training-project>summary::-webkit-details-marker,.training-more>summary::-webkit-details-marker{display:none}
+.training-project>summary::after,.training-more>summary::after{content:'⌄';position:absolute;right:14px;top:22px;font:18px/1 var(--sans);color:#819372}
+.training-project[open]>summary::after,.training-more[open]>summary::after{content:'⌃'}
+.training-row-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.training-name{font-size:15px;font-weight:650;color:#3d4d37}
+.training-name em{display:inline-block;margin-left:7px;font-size:11px;font-style:normal;font-weight:500;color:#617d4c}
+.training-current{display:flex;align-items:baseline;gap:5px;white-space:nowrap}
+.training-current small{font-size:11px;font-weight:400;color:#748168}
+.training-current b{font:700 24px/1.2 var(--numeric);color:#344e33}
+.training-row-metrics{display:flex;justify-content:space-between;gap:4px 8px;flex-wrap:wrap;margin-top:7px;font-size:12px;line-height:1.65;color:#637459}
+.training-row-metrics b{font-family:var(--numeric);font-weight:650;color:#405d3a}
+.training-row-metrics .training-cost{color:#88633f;white-space:nowrap}
+.training-project .training-progress-track{margin-top:5px;height:5px}
+.training-project-body{padding:0 14px 12px;border-top:1px solid #e3e8d9}
+.training-project-body>p{font-size:12px;line-height:1.65;color:#65765b;margin:8px 0}
+.training-project-action{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.training-result{font-size:13px;line-height:1.6;color:#49653d}
+.training-project-action .btn.small{min-height:44px;min-width:64px;padding:7px 14px;font-size:14px;flex-shrink:0}
+.training-more{margin:10px 0 12px;border:1px solid #dfe3d6;background:#f9faf5;border-radius:10px;overflow:hidden}
+.training-more>summary{list-style:none;position:relative;min-height:48px;padding:12px 36px 12px 14px;cursor:pointer;font-size:14px;font-weight:600;line-height:24px;color:#56694a}
+.training-more>summary::after{top:16px}.training-more>summary small{margin-left:8px;font-size:12px;font-weight:400;color:#74826a}
+.training-other-grid{padding:0 10px 10px}
+.training-project>summary:focus-visible,.training-more>summary:focus-visible{outline:3px solid #d98b55;outline-offset:-3px}
+@media(max-width:600px){
+ .career-training{margin-top:16px}.career-training .mobile-attribute-panel{margin:0 0 14px;padding:0 12px}
+ .career-training .mobile-attribute-panel>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:48px;font-size:15px}
+ .career-training .mobile-attribute-panel>summary::before{content:'▸';color:#7e8f70}.career-training .mobile-attribute-panel[open]>summary::before{content:'▾'}
+ .career-training .mobile-attribute-panel>summary small{margin-left:auto;font-size:13px;font-weight:500;color:#6d7d60}
+ .career-training .attribute-chips{gap:6px;margin-bottom:12px}.career-training .attribute-chips>div{padding:7px 3px}.career-training .attribute-chips b{font-size:22px}.career-training .attribute-chips span{font-size:12px}
+ .training-recommended,.training-other-grid{grid-template-columns:1fr;gap:8px}
+ .training-budget{justify-content:space-between;gap:5px 8px;font-size:12px;line-height:1.8;margin-bottom:10px}.training-budget b{font-size:14px}
+ .training-project>summary{padding:10px 30px 10px 12px;min-height:72px}.training-project>summary::after{right:11px;top:18px}
+ .training-name{font-size:15px}.training-current small{font-size:11px}.training-current b{font-size:24px}.training-row-metrics{font-size:12px;margin-top:5px}
+ .training-project-body{padding:0 12px 10px}.training-project-body>p{font-size:13px;line-height:1.6;margin:7px 0}.training-result{font-size:13px}
+ .training-other-grid{padding:0 8px 8px}.career-training .training-feedback{font-size:13px;padding:10px 12px;margin-bottom:12px}
+}
+
+@media(max-width:600px){.training-row-metrics{font-size:13px}.training-row-metrics b{font-size:14px}}

@@ -10,6 +10,15 @@
   id=candidates.find(k=>G.preview(q,k)?.available);if(!id)return null;
   return {id,label:G.preview(q,id).name,why:id==='handle'&&r?.stats.turnovers>=3?'上一场失误偏多，先把球护稳。':id==='shot'&&r?.stats.attempts>=3&&r.stats.made/r.stats.attempts<.4?'上一场出手不够稳，下一场把时机找回来。':'先练好一项拿手本领，再到比赛里检验。',preview:G.preview(q,id)};
  }
+ function trainingSuggestions(s,H){
+  const G=H.Growth,primary=training(s,H),preferred=focus[s.player.role]||G.keys;
+  if(primary?.id==='rest')return [{id:'rest',reason:'精力偏低，先恢复再上场。'}];
+  const ranked=[...preferred].sort((a,b)=>s.player.attrs[a]-s.player.attrs[b]);
+  const candidates=[...new Set([primary?.id,...ranked,...G.keys,'rest','tactics','study'])].filter(Boolean);
+  const available=candidates.filter(id=>G.preview(s,id)?.available);
+  const selected=(available.length?available:ranked.filter(id=>s.player.attrs[id]<96)).slice(0,2);
+  return selected.map((id,i)=>({id,reason:id==='rest'?'补足精力，准备下一次上场。':id==='tactics'?'跑一遍配合，增加球队默契。':id==='study'?'看比赛录像，磨练专项熟练度。':i===0&&primary?.id===id&&!primary.why.startsWith('先练好')?primary.why:i===0?H.roles[s.player.role].name+' · '+G.effects[id]:H.attrs[id]+'是当前打法的重点，继续补强。'}));
+ }
  function describe(s,H){
   if(!s?.career||!s.growth||s.career.phase==='retired')return null;
   const L=H.League,c=s.career,G=H.Growth,P=L.Path,a=L.samples(s),r=G.role(s),f=L.describe(s),t=training(s,H),checks=[];
@@ -50,5 +59,5 @@
   const note=c.pending?'这份合同已签妥，进入下一季后完成注册。':c.tier==='nba'?'角色由正式比赛中的持续表现逐步调整，不需要为晋升重新签约。':'达到考察条件后仍需获得邀请、通过考核并签约注册。';
   return {note,stage:tierNames[c.tier],step,goal,reason,checks,title,detail,action,training:t,duty:G.duty(s).label,fixture:f};
  }
- return {describe,training};
+ return {describe,training,trainingSuggestions};
 });

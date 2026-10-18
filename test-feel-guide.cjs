@@ -17,6 +17,19 @@ for(const role of ['guard','wing','big']){const s=player(role),d=guide(s);eq(d.s
 {const s=player();s.stage='result';eq(guide(s).action.type,'home');}
 {const s=player();s.career.phase='playoffs';s.career.post={series:[],byes:[s.career.teamId]};eq(guide(s).action.type,'skip-playoffs');}
 {const s=player(),c=s.career;c.phase='offseason';eq(guide(s).action.type,'calendar');s.week=c.seasonStart+40;c.offers=[];eq(guide(s).action.type,'new-season');c.offers=[{status:'available',type:'trial'}];eq(guide(s).action.focus,'offers');c.path.draft={year:c.year,status:'registered',combine:null};eq(guide(s).action.type,'draft-combine');c.path.draft.combine={grade:70};eq(guide(s).action.focus,'draft');c.pending={tier:'cba'};eq(guide(s).action.type,'new-season');ok(guide(s).title.includes('注册'));}
+for(const role of ['guard','wing','big']){
+ const s=player(role),before=JSON.stringify(s),tips=D.trainingSuggestions(s,H);
+ eq(JSON.stringify(s),before,'training selection never consumes resources or changes an old save');
+ eq(tips[0].id,D.training(s,H).id,'compact training agrees with the career guide');
+ ok(tips.length<=2&&new Set(tips.map(t=>t.id)).size===tips.length);
+ ok(tips.every(t=>H.Growth.preview(s,t.id).available),'default projects can actually be trained');
+ s.energy=30;eq(D.trainingSuggestions(s,H).map(t=>t.id),['rest'],'fatigue puts recovery first');
+ s.energy=100;Object.keys(s.player.attrs).forEach(k=>s.player.attrs[k]=96);
+ ok(D.trainingSuggestions(s,H).every(t=>!H.Growth.keys.includes(t.id)),'maxed attributes are not recommended');
+ s.growth.used=2;eq(D.trainingSuggestions(s,H),[],'no maxed training is promoted after weekly arrangements are spent');
+}
+{const s=player();s.lastReport.league={...s.lastReport.league,season:s.career.year,teamId:s.career.teamId};s.lastReport.stats.turnovers=4;
+ eq(D.trainingSuggestions(s,H)[0].id,'handle','recent turnovers prioritise ball control');}
 const frozen=['qa/v0.23-public-before.json','qa/v0.23-goal-flight.json',...fs.existsSync('qa/v021-compat')?fs.readdirSync('qa/v021-compat').map(n=>'qa/v021-compat/'+n):[]].filter(p=>fs.existsSync(p));
 for(const file of frozen){const packed=JSON.parse(fs.readFileSync(file)),s=H.restore(packed);ok(s);eq(H.snapshot(s),packed,'old save is unchanged');guide(s);if(s.match?.play?.model){const q=C.restore(s.match.play.model);ok(q);eq(q,s.match.play.model,'old court keeps original timings');}}
 for(const [path,stage] of [['qa/v0.24-nba-home.json','NBA'],['qa/full-cba-home.json','CBA']])if(fs.existsSync(path)){const q=H.restore(JSON.parse(fs.readFileSync(path)));ok(q);const d=guide(q);eq(d.stage,stage);if(stage==='NBA'){ok(d.checks.some(x=>x.label==='本队有效出场'));ok(d.note.includes('不需要'));}else ok(d.goal.includes('NBA'));}
