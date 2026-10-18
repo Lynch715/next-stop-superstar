@@ -23,7 +23,7 @@
   });
   // The team record title and table are siblings in older layouts.
   container.querySelectorAll('.section-title').forEach(heading=>{if(heading.querySelector('h2')?.textContent.trim()!=='比赛记录')return;const table=heading.nextElementSibling;if(!table?.classList.contains('table-wrap'))return;const d=document.createElement('details'),summary=document.createElement('summary'),body=document.createElement('div');d.className='card fold-card';body.className='fold-body';heading.replaceWith(d);summary.append(heading);body.append(table);d.append(summary,body);bind(d,view+':match-history',false);});
-  container.querySelectorAll('details:not([data-fold-key])').forEach((d,i)=>{const title=d.querySelector(':scope>summary')?.textContent.trim();if(title)bind(d,d.dataset.trainingFold?view+':training:'+(d.dataset.trainingContext||'group')+':'+d.dataset.trainingFold:d.dataset.seasonRecord?view+':season-record:'+d.dataset.seasonRecord:d.dataset.offerRecord?view+':offer:'+d.dataset.offerRecord:view+':native:'+title.slice(0,120),d.open);});
+  container.querySelectorAll('details:not([data-fold-key])').forEach((d,i)=>{const title=d.querySelector(':scope>summary')?.textContent.trim();if(title)bind(d,d.dataset.trainingFold?view+':training:'+(d.dataset.trainingContext||'group')+':'+d.dataset.trainingFold:d.dataset.seasonRecord?view+':season-record:'+d.dataset.seasonRecord:d.dataset.offerRecord?view+':offer:'+d.dataset.offerRecord:d.dataset.profileRecord?view+':profile:'+d.dataset.profileRecord:view+':native:'+title.slice(0,120),d.open);});
  }
  root.PageFolds={enhance,remember};
 })(typeof globalThis!=='undefined'?globalThis:this);
