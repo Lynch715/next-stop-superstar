@@ -12,7 +12,7 @@ function careerAttention(){
  const c=S.career;if(c.phase!=='offseason'||S.player.age>=38&&c.path)return null;
  if(c.pending)return {label:'合同待注册',count:0};
  if(S.week<c.seasonStart+40)return null;
- const count=c.offers.filter(o=>['available','contract'].includes(o.status)).length;
+ const count=c.offers.filter(o=>careerOfferState(o).enabled).length;
  if(count)return {label:'试训与签约',count};
  const a=CareerGuide.describe(S,H).action;
  return a.type==='draft-combine'||a.type==='guide-panel'&&a.focus==='draft'?{label:'选秀待办理',count:0}:null;
