@@ -42,4 +42,23 @@ for(const role of ['guard','wing','big']){
   ok(JSON.stringify(H.snapshot(s))===before,'live rendering never changes the match or save');
  }
 }
+// The result receipt is read-only; one clear return action leads to a possible next step.
+for(const mode of ['normal','recovery','spent','no-minutes','old-record']){
+ const s=mode==='no-minutes'?closeSeason():youth();if(mode==='recovery')s.energy=32;if(mode==='spent')s.growth.used=2;if(mode==='no-minutes'){s.player.age=22;const year=s.career.year+1;s.career.pending={id:'receipt-nba',tier:'nba',teamId:'nba-0',start:year,end:year+1,salary:120,bonus:8,role:1};ok(H.League.nextSeason(s,false),'register the no-minutes NBA case');s.growth.role=0;}
+ ok(H.beginHighlights(s,'weekly')&&H.simulateHighlights(s),'a real result is available for '+mode);
+ if(mode==='old-record'){delete s.lastReport.energySpent;delete s.lastReport.growthReward;}
+ context.fixture=s;run("S=fixture;view='career'");const original=JSON.stringify(H.snapshot(s)),f=run('CareerGuide.matchFeedback(S,H)'),html=run('careerResultView()');
+ ok(html.includes('class="post-result"'),'result has its own compact layout');
+ ok(html.includes('<details class="card post-match-details">'),'full match record starts closed');
+ ok(!html.includes('<details class="match-recap"'),'opening the record does not require a second fold');
+ ok(html.includes('比赛战报')&&html.includes('class="broadcast-feed"'),'actual text report remains available in the fold');
+ ok([...html.matchAll(/data-action="([^"]+)"/g)].every(x=>x[1]==='home')&&[...html.matchAll(/data-action="home"/g)].length===1,'exactly one primary next-step action');
+ ok(html.includes('推荐训练')&&html.includes('下一步')&&html.includes(f.action.label),'recommendation and actual next step are distinct');
+ ok(!html.includes('NaN')&&!html.includes('undefined'),'result never renders missing values');
+ if(mode==='spent'){ok(f.action.target===null,'spent weekly slots never auto-scroll to an unavailable training');ok(f.action.label.includes('下一场'),'spent weekly slots clearly lead back to games');}
+ if(mode==='recovery')ok(f.action.target==='rest','fatigue leads to recovery before training');
+ if(mode==='no-minutes')ok(html.includes('本场未出场')&&html.includes('不消耗'),'no appearance invents no minutes or energy cost');
+ if(mode==='old-record')ok(html.includes('旧记录未保存本场奖励')&&html.includes('旧记录未保存本场消耗'),'unknown old rewards and costs stay unknown');
+ ok(JSON.stringify(H.snapshot(s))===original,'opening a result never changes RNG, rewards or energy');
+}
 console.log(`PASS · ${checks} navigation and action ownership checks · reference pages read-only · career desk owns progression · saves/RNG unchanged`);

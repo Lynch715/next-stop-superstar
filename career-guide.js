@@ -31,7 +31,7 @@
   const opportunity=!r.league.official&&r.league.kind!=='assessment',ended=r.league.official&&s.career.phase==='offseason'&&!!s.career.summary;
   const recover=s.energy<60&&G.preview(q,'rest').available,target=recover?'rest':recommendation?.id;
   const canTrain=target&&G.preview(q,target).available;
-  const action={type:'home',label:ended?'查看赛季总结':opportunity?'回到球队，查看机会':recover?'回到球队，先恢复':canTrain?'回到球队，练'+H.attrs[target]:'回到训练与下一场',target:!opportunity&&!ended?target:null};
+  const action={type:'home',label:ended?'查看赛季总结':opportunity?'回到球队，查看机会':recover?'回到球队，先恢复':canTrain?'回到球队，练'+H.attrs[target]:'回到球队，安排下一场',target:!opportunity&&!ended&&canTrain?target:null};
   const note=ended?'这一季已结束，回到球队查看收官与下季安排。':opportunity?'本次考核已记录，先查看球队机会。':recover?'精力偏低，先恢复，再安排专项。':s.growth.used>=2?'本周安排已用完，先完成赛程；下周优先练这项。':target&&!canTrain?G.preview(q,target).reason+'；先回到球队安排下一步。':'回队后还可安排 '+(2-s.growth.used)+' 次训练。';
   return {recommendation,reward,rewardNote,tpBefore:g&&s.stage==='result'&&s.growth.tp>=g.total?s.growth.tp-g.total:null,tpAfter:s.growth.tp,energyBefore,energyAfter:s.energy,spent,action,note,roleFrom:g?G.roles[g.oldRole].name:null,roleTo:g?G.roles[g.newRole].name:G.role(s).name};
  }
