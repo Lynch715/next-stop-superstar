@@ -38,7 +38,7 @@ function updateSave() {
 function toast(text) { clearTimeout(toastTimer); $('#toast').textContent = text; $('#toast').classList.add('show'); toastTimer = setTimeout(() => $('#toast').classList.remove('show'), 3600); }
 function nav() {
   const enabled = !!(S && S.placement), active = view === 'career' ? 'career' : view;
-  const items=S?.career?[['career','home','我的生涯'],['season','flag','赛季与排名'],['opportunities','jersey','试训与合同'],['team','team','球队与角色'],['settings','settings','存档与设置']]:[['career', 'home', '我的生涯'], ['team', 'team', S?.growth?'球队与角色':'球队伙伴'], ['album', 'album', '成长纪念册'], ['guide', 'book', '怎么打球'], ['settings', 'settings', '存档与设置']];
+  const items=S?.career?[['career','home','我的生涯'],['season','flag','赛季与排名'],['opportunities','jersey','球探与合同'],['team','team','球员档案'],['settings','settings','存档与设置']]:[['career', 'home', '我的生涯'], ['team', 'team', S?.growth?'球队与角色':'球队伙伴'], ['album', 'album', '成长纪念册'], ['guide', 'book', '怎么打球'], ['settings', 'settings', '存档与设置']];
   $('#nav').innerHTML=items.map(([key, ic, text]) => `<button class="nav-item ${(active === key || (view === 'welcome' || view === 'create') && key === 'career') ? 'active' : ''}" data-action="nav" data-view="${key}" ${['team', 'album','season','opportunities'].includes(key) && !enabled ? 'disabled' : ''} aria-label="${text}" ${active === key ? 'aria-current="page"' : ''}>${icon(ic)}<span class="nav-text">${text}</span>${['team', 'album','season','opportunities'].includes(key) && !enabled ? '<span class="nav-lock">待入队</span>' : ''}</button>`).join('');
 }
 function steps(n) { return `<div class="stage-steps" aria-label="开局进度">${['创建少年', '初到江岚', '选拔时刻', '新的起点'].map((text, i) => `${i ? '<span class="step-line"></span>' : ''}<span class="step-item ${i <= n ? 'on' : ''}" ${i === n ? 'aria-current="step"' : ''}><b>${i < n ? '✓' : i + 1}</b>${text}</span>`).join('')}</div>`; }
@@ -160,8 +160,9 @@ function render(scroll = true) {
   PageFolds.remember($('#content'));
   const club=S?.career?clubName(S.career.tier,S.career.teamId,S.career.teams.find(t=>t.id===S.career.teamId).name):'江岚中学';$('.sidebar-bottom>b').textContent=club;$('.school-seal').innerHTML=S?.career?clubMark(S.career.tier,S.career.teamId,club):esc(Array.from(club)[0]);
   nav(); updateSave();
-  const crumb = {season:'赛季与排名',opportunities:'试训与合同', welcome: '故事的起点', create: '创建你的篮球少年', team: '球队伙伴', album: '成长纪念册', guide: '怎么打球', settings: '存档与设置', career: S ? ({ arrival: '初到江岚', introFeedback: '初到江岚', match: '比赛进行中', result: '赛后评价', home: S.career?.phase==='retired'?'生涯已退役':`第 ${S.week} 周安排` }[S.stage]) : '故事的起点' };
-  $('#crumb').textContent = crumb[view];
+  document.body.classList.toggle('basketball-career',!!S?.career);document.body.dataset.view=view;
+  const crumb = {season:'赛季与排名',opportunities:'球探与合同', welcome: '故事的起点', create: '创建你的篮球少年', team: '球队伙伴', album: '成长纪念册', guide: '怎么打球', settings: '存档与设置', career: S ? ({ arrival: '初到江岚', introFeedback: '初到江岚', match: '比赛进行中', result: '赛后评价', home: S.career?.phase==='retired'?'生涯已退役':`第 ${S.week} 周安排` }[S.stage]) : '故事的起点' };
+  $('#crumb').textContent = view==='team'&&S?.career?'球员档案':crumb[view];
   const pages = {season:careerSeasonView,opportunities:careerOpportunitiesView, welcome, create: creation, team, album, guide, settings, career: () => S.stage === 'arrival' || S.stage === 'introFeedback' ? arrival() : S.stage === 'match' ? match() : S.stage === 'result' ? result() : home() };
   $('#content').innerHTML = `<div class="page-enter">${pages[view]()}</div>`;
   PageFolds.enhance($('#content'),view,S);
@@ -184,24 +185,26 @@ function createView() { view = 'create'; render(); }
 function processAction(el) {
   const a = el.dataset.action;
   if(a==='copy-wechat'){copyProducerWechat();return;}
-  if (a === 'nav') { const v = el.dataset.view;if(['season','opportunities'].includes(v)&&(!S?.career||!S.placement))return; if (v === 'career') { view = S ? 'career' : 'welcome'; } else if (['team', 'album'].includes(v) && !S?.placement) return; else view = v; render(); return; }
+  if (a === 'nav') { const v = el.dataset.view;if(['season','opportunities'].includes(v)&&(!S?.career||!S.placement))return; if (v === 'career') { view = S ? 'career' : 'welcome';careerSection='court'; } else if (['team', 'album'].includes(v) && !S?.placement) return; else view = v; render(); return; }
   if (a === 'create') { if (S) modal('给新的少年留个位置？', '新建时会先下载当前生涯的备份，再打开建角页。只有确认新角色时，才会替换当前进度。', () => { downloadSave(); createView(); }, '备份并创建'); else createView(); return; }
-  if(a==='load-legacy'||a==='load-growth'||a==='load-season'){try{const raw=localStorage.getItem(a==='load-legacy'?LEGACY_KEY:a==='load-season'?SEASON_KEY:KEY),next=raw&&H.restore(JSON.parse(raw));if(!next){toast('尚无可读取的对应版本存档。');return;}S=next;save();view='career';render();}catch(_){toast('这份存档暂时无法读取，请保留备份。');}return;}
-  if(a==='focus-training'){if(S?.career&&S.stage==='home'){view='career';render(false);revealTrainingProject(el.dataset.value);}return;}
+  if(a==='load-legacy'||a==='load-growth'||a==='load-season'){try{const raw=localStorage.getItem(a==='load-legacy'?LEGACY_KEY:a==='load-season'?SEASON_KEY:KEY),next=raw&&H.restore(JSON.parse(raw));if(!next){toast('尚无可读取的对应版本存档。');return;}S=next;careerSection='court';save();view='career';render();}catch(_){toast('这份存档暂时无法读取，请保留备份。');}return;}
+  if(a==='career-section'){if(!S?.career)return;view='career';careerSection=el.dataset.section==='management'?'management':'court';render();return;}
+  if(S?.career&&view!=='career'&&['train','run-plan','weekly','quick-match','calendar','new-season','skip-playoffs','assessment','club-trial','sign-contract','buy-support','equip','draft-register','draft-withdraw','draft-run','draft-combine','nba-camp','decline-offer','retire-player','upgrade-pro','practice','home','begin','choose','next','flow-pause','flow-next','flow-skip','flow-quick'].includes(a)){view='career';careerSection=['train','run-plan','weekly','quick-match','assessment','equip','practice','skip-playoffs'].includes(a)?'court':'management';render();toast('已回到我的生涯，在这里安排下一步。');return;}
+  if(a==='focus-training'){if(S?.career&&S.stage==='home'){view='career';careerSection='court';render(false);revealTrainingProject(el.dataset.value);}return;}
   if(a==='training-dismiss'){latestTrainingFeedback=null;render(false);document.querySelector('.career-training')?.scrollIntoView({block:'start',behavior:'instant'});return;}
   if (a === 'practice') { practiceMenu(); return; }
   if (a === 'practice-mode') { $('#dialog').close(); practiceMode(el.dataset.mode); return; }
   if (a === 'practice-close') { $('#dialog').close(); return; }
-  if (a === 'continue') { view = S ? 'career' : 'create'; render(); return; }
+  if (a === 'continue') { view = S ? 'career' : 'create';careerSection='court'; render(); return; }
   if (a === 'role' || a === 'origin') { rememberDraft(); draft[a] = el.dataset.value; render(false); return; }
   if (a === 'export') { downloadSave(); toast('生涯备份已开始下载。'); return; }
   if (a === 'import') { $('#import-file').click(); return; }
   if (!S) return;
-  if(a==='guide-panel'){view='opportunities';render();const key='opportunities:'+el.dataset.focus;const panel=[...document.querySelectorAll('details[data-fold-key]')].find(d=>d.dataset.foldKey===key);if(panel){panel.open=true;panel.scrollIntoView({block:'start',behavior:'smooth'});}return;}
+  if(a==='guide-panel'){view='career';careerSection='management';render();const key='career:'+el.dataset.focus;const panel=[...document.querySelectorAll('details[data-fold-key]')].find(d=>d.dataset.foldKey===key);if(panel){panel.open=true;panel.scrollIntoView({block:'start',behavior:'smooth'});}return;}
   if(a==='flow-pause'&&S.match?.highlights){S.match.highlights.playbackPaused=!S.match.highlights.playbackPaused;save();render(false);return;}
   if(a==='flow-next'||a==='flow-skip'||a==='flow-quick'){const done=a==='flow-next'?H.advanceHighlights(S):a==='flow-skip'?H.skipHighlight(S):H.simulateHighlights(S);if(done){save();render(a==='flow-next');}return;}
   if(processCareerAction(el))return;
-  if(a==='migrate'){if(S.stage==='match'){toast('请先完成当前比赛，再接入成长版。');return;}modal('接入训练成长版？','保留旧版原始存档和全部历史。新版本提供 6 点训练资源，取消固定对白门槛；先从校队训练和比赛继续，也可以开启完整赛季。',()=>{const next=H.migrate(S);if(next){downloadSave();S=next;save();view='career';render();}},'备份并接入');return;}
+  if(a==='migrate'){if(S.stage==='match'){toast('请先完成当前比赛，再接入成长版。');return;}modal('接入训练成长版？','保留旧版原始存档和全部历史。新版本提供 6 点训练资源，取消固定对白门槛；先从校队训练和比赛继续，也可以开启完整赛季。',()=>{const next=H.migrate(S);if(next){downloadSave();S=next;careerSection='court';save();view='career';render();}},'备份并接入');return;}
   if(a==='run-plan'){const before=CareerGuide.trainingSnapshot(S,H);if(H.Growth.runPlan(S)){rememberTrainingFeedback(before);save();render(false);if(before)revealTrainingFeedback();else toast(S.lastTraining);}else toast(H.Growth.preview(S,S.growth.plan[S.growth.used]||'rest')?.reason||'本周安排已完成');return;}
   if(a==='equip'){if(H.Growth.equip(S,el.dataset.value)){save();render(false);}return;}
   if(a==='story-choice'){if(H.storyChoose(S,Number(el.dataset.index),el.dataset.storyId)){save();render(false);$('#story-panel')?.scrollIntoView({block:'start',behavior:'instant'});}return;}
@@ -213,7 +216,7 @@ function processAction(el) {
   if (a === 'begin') changed = H.beginHighlights(S);
   if (a === 'choose') { const pending=H.startPlay(S,Number(el.dataset.index)); if(pending){save();render(false);launchCourt(pending);}return; }
   if (a === 'next') changed = H.next(S);
-  if (a === 'home') {const opportunity=S.lastReport?.league&&!S.lastReport.league.official&&S.lastReport.league.kind!=='assessment';changed=H.goHome(S);if(changed&&opportunity)view='opportunities';}
+  if (a === 'home') {const opportunity=S.lastReport?.league&&!S.lastReport.league.official&&S.lastReport.league.kind!=='assessment';changed=H.goHome(S);if(changed){view='career';careerSection=opportunity?'management':'court';}}
   if (a === 'train') { const before=CareerGuide.trainingSnapshot(S,H);changed = H.train(S, el.dataset.value); scroll = false; if (changed){if(before)rememberTrainingFeedback(before);else toast(S.lastTraining);} }
   if (a === 'weekly') changed=H.beginHighlights(S,'weekly');
   if (changed) { save(); render(scroll); if(a==='enroll')$('.league-panel')?.scrollIntoView({block:'start',behavior:'instant'}); if(a==='home'&&S.career&&view==='career'&&el.dataset.trainingTarget)revealTrainingProject(el.dataset.trainingTarget); if(a==='train'&&S.career)revealTrainingFeedback(); if(a==='train'&&H.storyScene(S))$('#story-panel')?.scrollIntoView({block:'start',behavior:'instant'}); if (innerWidth <= 880 && ['choose', 'next'].includes(a) && S.stage === 'match') $('.decision-panel').scrollIntoView({block:'start', behavior:'instant'}); }
@@ -245,7 +248,7 @@ document.addEventListener('click', event => {
 });
 document.addEventListener('input', event => {
   if(event.target.matches('[data-season-round]')){seasonRoundPage=Number(event.target.value);render(false);return;}
-  if(event.target.matches('[data-plan-index]')&&S?.growth){const plan=[...S.growth.plan];plan[Number(event.target.dataset.planIndex)]=event.target.value;if(H.Growth.setPlan(S,plan)){save();toast('周计划已保存，点击执行才会消耗资源。');}return;}
+  if(event.target.matches('[data-plan-index]')&&S?.growth){if(S.career&&view!=='career')return;const plan=[...S.growth.plan];plan[Number(event.target.dataset.planIndex)]=event.target.value;if(H.Growth.setPlan(S,plan)){save();toast('周计划已保存，点击执行才会消耗资源。');}return;}
   if (event.target.id === 'player-name') { draft.name = event.target.value; $('#preview-name').textContent = draft.name || '你的姓名'; }
   if (event.target.id === 'player-number') { draft.number = event.target.value; $('#preview-number').textContent = draft.number || '0'; }
 });
@@ -260,7 +263,7 @@ document.addEventListener('change', async event => {
   try {
     if (file.size > 10 * 1024 * 1024) throw Error('存档文件过大，请选择本游戏导出的 JSON。');
     const data = H.restore(JSON.parse(await file.text())); if (!data) throw Error('存档格式不符合当前版本，原进度仍然保留。');
-    modal('恢复这段篮球人生？', `将恢复「${data.player.name}」第 ${data.week} 周的进度。${S ? '确认后会先下载当前生涯备份，再恢复选中的存档。' : '文件校验已通过。'}`, () => { if (S) downloadSave(); S = data; standingsGroup=null;seasonRoundPage=null; save(); view = 'career'; render(); toast('生涯已恢复。'); }, '确认恢复');
+    modal('恢复这段篮球人生？', `将恢复「${data.player.name}」第 ${data.week} 周的进度。${S ? '确认后会先下载当前生涯备份，再恢复选中的存档。' : '文件校验已通过。'}`, () => { if (S) downloadSave(); S = data;careerSection='court'; standingsGroup=null;seasonRoundPage=null; save(); view = 'career'; render(); toast('生涯已恢复。'); }, '确认恢复');
   } catch (error) { toast(error.message || '无法读取此存档。'); }
   event.target.value = '';
 });

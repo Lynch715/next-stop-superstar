@@ -29,7 +29,7 @@ output=ROOT/'release';output.mkdir(exist_ok=True)
 with zipfile.ZipFile(output/'下一站巨星-v0.24-网站.zip','w',zipfile.ZIP_DEFLATED) as z:
     for f in sorted(destination.rglob('*')):
         if f.is_file():z.write(f,f.relative_to(destination))
-source={*files,'README.md','发布说明.md','.gitignore','.github/workflows/pages.yml','test-mobile.cjs','test-highlights.cjs','test-match-context.cjs','test-playback.cjs','test-feel-guide.cjs','tools/build_release.py','tools/check_release.py','tools/make_app_icons.py'}- {'.nojekyll'}
+source={*files,'README.md','发布说明.md','.gitignore','.github/workflows/pages.yml','test-mobile.cjs','test-highlights.cjs','test-match-context.cjs','test-playback.cjs','test-feel-guide.cjs','test-navigation.cjs','tools/build_release.py','tools/check_release.py','tools/make_app_icons.py'}- {'.nojekyll'}
 with zipfile.ZipFile(output/'下一站巨星-v0.24-源码.zip','w',zipfile.ZIP_DEFLATED) as z:
     for f in sorted(source):z.write(ROOT/f,f)
 print(f'PASS · static release {len(manifest["files"])} files · {sum(x["bytes"] for x in manifest["files"].values()):,} bytes · website and source archives')
