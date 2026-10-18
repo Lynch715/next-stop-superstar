@@ -44,7 +44,7 @@
   }else if(!f)set(c.post?.byes?.includes(c.teamId)?'本轮轮空，先完成其他比赛':'本队赛程已结束，查看赛季收官','其他球队打完这一轮，才会生成后续对阵或进入休赛期。','skip-playoffs','推进季后赛');
   else if(s.energy<60&&t?.id==='rest')set('先恢复，再准备出场',`精力 ${s.energy} → ${t.preview.afterEnergy}，使用一次本周安排。`,'train','休息恢复',{value:'rest'});
   else if(f.minutes===0&&(!c.assessmentWeek||s.week-c.assessmentWeek>=4))set('暂未进轮换，争取队内考核','打一次队内实操，让教练重新评估；也可继续训练和跟随正式比赛。','assessment','参加队内考核');
-  else if(t&&t.id!=='rest'&&c.phase==='regular')set('赛前先练一项，带到下一场',`${t.label}：${t.preview.gain?H.attrs[t.id]+' +'+t.preview.gain:t.preview.advanced?'进阶累计 '+t.preview.progress+' / '+t.preview.need:''}，花费 ${t.preview.spent} 点，精力 ${s.energy} → ${t.preview.afterEnergy}。${t.why}`,'train',t.label,{value:t.id});
+  else if(t&&t.id!=='rest'&&c.phase==='regular')set('赛前先练一项，带到下一场',`${t.label}：${t.preview.gain?H.attrs[t.id]+' +'+t.preview.gain:t.preview.advanced?'练后累计 '+t.preview.progress+' / '+t.preview.need:''}，花费 ${t.preview.spent} 点，精力 ${s.energy} → ${t.preview.afterEnergy}。${t.why}`,'train',t.label,{value:t.id});
   else if(f.week>s.week)set('训练安排告一段落，推进到比赛周','先预览这段日历的恢复和训练，再去打下一场。','calendar','推进至比赛周');
   else set(f.phase==='playoffs'?'下一步，打好这场淘汰赛':'下一步，上场检验训练',`${f.opponent}在等你。${f.minutes?'预计出场 '+f.minutes+' 分钟；'+G.duty(s).label+'。'+(s.energy<60?'本周安排已用完，先控制消耗，下周优先恢复。':''):'本场暂未进轮换，先在场边跟随战报，继续积累训练。'}`,'weekly','进入下一场比赛');
   const note=c.pending?'这份合同已签妥，进入下一季后完成注册。':c.tier==='nba'?'角色由正式比赛中的持续表现逐步调整，不需要为晋升重新签约。':'达到考察条件后仍需获得邀请、通过考核并签约注册。';
