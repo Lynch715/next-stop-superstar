@@ -2,7 +2,7 @@
 """Check release integrity and GitHub project-subdirectory compatibility."""
 from pathlib import Path
 import hashlib,json,re,struct,zipfile
-ROOT=Path(__file__).resolve().parents[1];d=ROOT/'dist';m=json.loads((d/'release-manifest.json').read_text());assert m['version']=='0.24'
+ROOT=Path(__file__).resolve().parents[1];d=ROOT/'dist';m=json.loads((d/'release-manifest.json').read_text());assert m['version']=='1.0'
 actual={str(f.relative_to(d)) for f in d.rglob('*') if f.is_file()};assert actual==set(m['files'])|{'release-manifest.json'}
 for f,info in m['files'].items():
     content=(d/f).read_bytes();assert len(content)==info['bytes'] and hashlib.sha256(content).hexdigest()==info['sha256'],f
@@ -10,9 +10,9 @@ for f,info in m['files'].items():
 catalog=json.loads((d/'assets/teams/manifest.json').read_text());assert len(catalog['teams'])==60
 for team in catalog['teams']:
     f=team['logo'];assert (d/f).is_file() and hashlib.sha256((d/f).read_bytes()).hexdigest()==team['sha256'],f
-for name in ['index.html','team-data.js','app.js']:
+for name in ['index.html','team-data.js','light-ui.js']:
     text=(d/name).read_text();assert not re.search(r'(?:src|href)=["\']/(?!/)',text),name
-assert 'lynchrrr' in (d/'app.js').read_text()
+assert 'lynchrrr' in (d/'light-ui.js').read_text()
 app=json.loads((d/'manifest.webmanifest').read_text())
 assert app['name']==app['short_name']=='下一站巨星'
 assert app['start_url']==app['scope']==app['id']=='./'
@@ -25,8 +25,12 @@ raw=(d/'assets/app/apple-touch-icon.png').read_bytes()
 assert struct.unpack('>II',raw[16:24])==(180,180)
 assert 'name="apple-mobile-web-app-title" content="下一站巨星"' in (d/'index.html').read_text()
 assert '<title>下一站巨星</title>' in (d/'index.html').read_text()
-for z in (ROOT/'release').glob('*.zip'):
+for z in (ROOT/'release').glob('*-v1.0-*.zip'):
     with zipfile.ZipFile(z) as archive:
         assert archive.testzip() is None
         assert not any(n.startswith(('qa/','dist/','.git/')) or n.endswith('.json') and 'teams/manifest' not in n and n!='release-manifest.json' for n in archive.namelist())
 print(f'PASS · {len(m["files"])} release hashes · 60 team marks · app icons/name/scope · relative URLs · no saves or QA payloads · archive integrity')
+
+assert '游戏币' not in (d/'light-ui.js').read_text()
+assert '人民币' in (d/'light-ui.js').read_text()
+assert not any((d/f).exists() for f in ['app.js','story.js','court.js','pro-path.js','growth.js'])

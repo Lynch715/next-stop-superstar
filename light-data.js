@@ -1,0 +1,20 @@
+/* Light career rules. All prices are expressed in renminbi yuan. */
+(function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.LightData=api;})(typeof globalThis!=='undefined'?globalThis:this,function(){
+'use strict';
+const attrs={shot:'投篮',drive:'突破',pass:'传球',handle:'控球',rebound:'篮板',defense:'防守',body:'对抗',stamina:'体能'};
+const roles={guard:{name:'灵巧后卫',short:'后卫',height:171,maxHeight:184,stats:[58,57,65,66,35,48,40,55],weights:{pass:.25,handle:.25,shot:.15,drive:.15,defense:.1,stamina:.1}},wing:{name:'得分侧翼',short:'侧翼',height:178,maxHeight:194,stats:[62,64,43,53,47,44,51,54],weights:{shot:.25,drive:.25,defense:.2,handle:.1,body:.1,stamina:.1}},big:{name:'潜力内线',short:'内线',height:185,maxHeight:206,stats:[37,40,43,32,69,65,65,50],weights:{rebound:.25,defense:.25,body:.25,shot:.1,stamina:.1,pass:.05}}};
+const tiers={school:{name:'校园联赛',n:8,rounds:14,base:56,cut:4,best:[1,1],salary:12,market:30},youth:{name:'国内青年联赛',n:10,rounds:18,base:65,cut:4,best:[3,3],salary:24,market:80},overseasYouth:{name:'海外青年联赛',n:10,rounds:18,base:67,cut:4,best:[3,3],salary:30,market:100},development:{name:'国内发展联赛',n:10,rounds:18,base:66,cut:4,best:[3,3],salary:60,market:180},cba:{name:'CBA',n:20,rounds:38,base:76,cut:12,best:[3,5,5,7],salary:180,market:1000},overseas:{name:'NBA G League',n:10,rounds:18,base:73,cut:4,best:[3,3],salary:150,market:800},nba:{name:'NBA',n:30,rounds:82,base:86,cut:16,best:[1,1,7,7,7,7],salary:1000,market:8000}};
+const roleNames=['待命','替补','轮换','首发','核心'],minuteShares=[.05,.15,.35,.60,.75],salaryRoles=[.25,.55,.85,1.1,1.4];
+const assets={shoes:{name:'球鞋',group:'装备',prices:[0,8,30,100],effects:['基础球鞋','投篮窗口 +1% · 变向更从容','投篮窗口 +1.5% · 变向更从容','投篮窗口 +2% · 变向更从容']},guard:{name:'护具',group:'装备',prices:[0,12,45,140],effects:['球队基础护具','每场精力消耗 -1','每场精力消耗 -2','每场精力消耗 -3']},technical:{name:'技术训练器材',group:'训练条件',prices:[0,16,60,200],keys:['shot','drive','pass','handle'],effects:['球队基础器材','技术训练效率 +10%','技术训练效率 +20%','技术训练效率 +30%']},defensive:{name:'防守训练器材',group:'训练条件',prices:[0,16,60,200],keys:['rebound','defense','body'],effects:['球队基础器材','防守训练效率 +10%','防守训练效率 +20%','防守训练效率 +30%']},fitness:{name:'体能训练器材',group:'训练条件',prices:[0,16,60,200],keys:['stamina'],effects:['球队基础器材','体能训练效率 +10%','体能训练效率 +20%','体能训练效率 +30%']},recovery:{name:'恢复设备',group:'恢复',prices:[0,40,120,360],effects:['每周自然恢复 28','每周自然恢复额外 +8','每周自然恢复额外 +12','每周自然恢复额外 +16']},space:{name:'个人训练空间',group:'训练条件',prices:[0,300,900,2400],effects:['使用球队训练场','全专项训练效率 +5%','全专项训练效率 +10%','全专项训练效率 +15%']}};
+const perks={catchShoot:{name:'接球投手',attr:'shot',text:'投篮成功窗口 +2%'},ballHandler:{name:'控球突破',attr:'handle',text:'变向时机更宽'},playmaker:{name:'挡拆组织',attr:'pass',text:'助攻转化 +8% · 传球失误 -5%'},board:{name:'篮板支柱',attr:'rebound',text:'争板时机窗口 +2%'},rim:{name:'禁区守护',attr:'defense',text:'抢断窗口 +1% · 有效盖帽 +8%'},finisher:{name:'稳定终结',attr:'drive',text:'过人后上篮命中率 +4%'}};
+// Renminbi price scale: salary, assets and market valuations use yuan; balances use fen.
+for(const cfg of Object.values(tiers)){cfg.salary*=1000;cfg.market*=1000;}
+for(const asset of Object.values(assets))asset.prices=asset.prices.map(price=>price*1000);
+const kinds={shot:'投篮',rebound:'篮板',steal:'抢断',drive:'过人'},statKeys=['points','assists','rebounds','steals','blocks','turnovers','fouls','made','attempts'];
+const origin={street:{name:'街头野球',bonus:{drive:4,handle:3}},school:{name:'校队基础',bonus:{pass:4,defense:3}},fresh:{name:'初学篮球',bonus:{stamina:4,body:3}}};
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x)),copy=x=>JSON.parse(JSON.stringify(x)),zero=()=>Object.fromEntries(statKeys.map(k=>[k,0]));
+function random(s){s.seed=(Math.imul(s.seed,1664525)+1013904223)>>>0;return s.seed/4294967296;}
+function hash(text){let h=2166136261;for(const c of String(text)){h^=c.charCodeAt(0);h=Math.imul(h,16777619);}return h>>>0;}
+function core(p){return Math.round(Object.entries(roles[p.role].weights).reduce((n,[k,w])=>n+p.attrs[k]*w,0));}
+return {attrs,roles,tiers,roleNames,minuteShares,salaryRoles,assets,perks,kinds,statKeys,origin,clamp,copy,zero,random,hash,core};
+});

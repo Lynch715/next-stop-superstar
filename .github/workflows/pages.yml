@@ -1,6 +1,11 @@
 name: Publish basketball career
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Explicitly publish after approval
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -14,14 +19,12 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
-      - name: Check mobile controls
+      - name: Check light career
         run: |
-          node test-mobile.cjs
-          node test-highlights.cjs
-          node test-match-context.cjs
-          node test-playback.cjs
-          node test-feel-guide.cjs
-          node test-navigation.cjs
+          node test-light.cjs
+          node test-light-ui.cjs
+          node test-light-broadcast.cjs
+          node test-light-mini.cjs
       - name: Build and validate website
         run: |
           python3 tools/build_release.py
@@ -31,6 +34,7 @@ jobs:
         with:
           path: dist
   deploy:
+    if: ${{ inputs.publish }}
     needs: build
     runs-on: ubuntu-latest
     permissions:
