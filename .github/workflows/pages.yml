@@ -23,6 +23,7 @@ jobs:
         run: |
           node test-light.cjs
           node test-light-ui.cjs
+          node test-light-storage.cjs
           node test-light-broadcast.cjs
           node test-light-mini.cjs
       - name: Build and validate website

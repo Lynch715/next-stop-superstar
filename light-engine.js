@@ -149,6 +149,40 @@ function valid(s){try{const int=(n,a=0,b=1e12)=>Number.isSafeInteger(n)&&n>=a&&n
  if(s.match){const m=s.match;if(!['official','trial','assessment'].includes(m.type)||!['broadcast','moment','feedback','result'].includes(m.phase)||!int(m.clock,0,m.total)||!int(m.total,180,12000)||m.box.length!==2||!m.box.every(b=>b.length===8&&b.every(p=>stats(p.stats)&&int(p.seconds,0,m.total)))||!m.score.every(n=>int(n,0,1000))||m.box.some((b,i)=>b.reduce((n,p)=>n+p.stats.points,0)!==m.score[i])||!int(m.index,0,m.moments.length)||m.moments.some(mo=>!Object.hasOwn(D.kinds,mo.kind)||mo.result&&(!stats(mo.result.stats)||mo.result.q<0||mo.result.q>1)))return false;if(!int(m.mine,0,1)||m.fixture[m.mine===0?'home':'away']!==s.teamId||m.box.some(b=>b.reduce((n,p)=>n+p.seconds,0)!==m.clock*4)||m.moments.some(mo=>!Number.isFinite(mo.center)||mo.center<.3||mo.center>.7||!int(mo.lane,0,2)||![2,3].includes(mo.points)||mo.opposition<0||mo.opposition>96||mo.finishRoll<0||mo.finishRoll>=1||mo.result&&(!mo.input||JSON.stringify(miniOutcome(s,{...mo,result:null},mo.input,m.energy))!==JSON.stringify(mo.result))))return false;}
  return true;
  }catch{return false;}}
-function restore(raw){if(typeof raw==='string'){if(raw.length>4500000)return null;try{raw=JSON.parse(raw);}catch{return null;}}return valid(raw)?copy(raw):null;}
-return {...D,VERSION,money,create,valid,restore,copy,hasPerk,trainingCost,efficiency,servicePrice,trainingPreview,train,setPlan,runPlan,buy,recover,advanceTo,calendarPreview,teamName,generateTeams,startSeason,table,ownTeam,recent,sample,competition,targetRole,minutes,valueFactors,evaluateValue,miniParams,miniOutcome,pointerAt,leanAt,simulatedInput,moment,practice,currentMoment,nextMoment,advanceBroadcast,applyMoment,simulateRemaining,grade,fixture,beginMatch,batch,dismissResult,skipOtherPost,leaders,qualification,exitFee,sign,trial,assessment,nextSeason,retire,totals};
+// Lossless local-storage envelope. JSON exports and all gameplay fields remain unchanged.
+const SAVE_PREFIX='NSG1|',SAVE_LIMIT=4500000;
+function saveHash(text){let hash=2166136261;for(let i=0;i<text.length;i++)hash=Math.imul(hash^text.charCodeAt(i),16777619)>>>0;return hash.toString(16);}
+function packSave(raw){
+ if(typeof raw!=='string'||raw.length>SAVE_LIMIT)throw Error('Invalid save size');
+ const dict=new Map(),codes=[];let next=256,word='';
+ function byte(value){const c=String.fromCharCode(value),both=word+c;if(word===''||dict.has(both)){word=both;return;}codes.push(String.fromCharCode((word.length===1?word.charCodeAt(0):dict.get(word))+32));if(next<32768)dict.set(both,next++);word=c;}
+ for(let i=0;i<raw.length;i++){const c=raw.charCodeAt(i);byte(c&255);byte(c>>>8);}
+ if(word)codes.push(String.fromCharCode((word.length===1?word.charCodeAt(0):dict.get(word))+32));
+ return SAVE_PREFIX+raw.length+'|'+saveHash(raw)+'|'+codes.join('');
+}
+function unpackSave(raw){
+ if(typeof raw!=='string'||!raw.startsWith(SAVE_PREFIX))return raw;
+ if(raw.length>SAVE_LIMIT*2+100)throw Error('Oversized save');
+ const end=raw.indexOf('|',SAVE_PREFIX.length),hashEnd=raw.indexOf('|',end+1);
+ if(end<0||hashEnd<0)throw Error('Invalid save header');
+ const lengthText=raw.slice(SAVE_PREFIX.length,end),length=Number(lengthText),hash=raw.slice(end+1,hashEnd);
+ if(!/^(0|[1-9][0-9]*)$/.test(lengthText)||!Number.isSafeInteger(length)||length>SAVE_LIMIT||!/^([0-9a-f]{1,8})$/.test(hash))throw Error('Invalid save header');
+ const dict=[],parts=[];let next=256,previous='',size=0;
+ for(let i=hashEnd+1;i<raw.length;i++){
+  const code=raw.charCodeAt(i)-32;let entry;
+  if(code>=0&&code<256)entry=String.fromCharCode(code);
+  else if(code>=256&&code<next)entry=dict[code];
+  else if(code===next&&previous&&next<32768)entry=previous+previous[0];
+  if(!entry)throw Error('Invalid save code');
+  size+=entry.length;if(size>length*2)throw Error('Expanded save exceeds limit');parts.push(entry);
+  if(previous&&next<32768)dict[next++]=previous+entry[0];previous=entry;
+ }
+ if(size!==length*2)throw Error('Truncated save');
+ const bytes=parts.join(''),chunks=[];let chars=[];
+ for(let i=0;i<bytes.length;i+=2){chars.push(String.fromCharCode(bytes.charCodeAt(i)|(bytes.charCodeAt(i+1)<<8)));if(chars.length===8192){chunks.push(chars.join(''));chars=[];}}
+ chunks.push(chars.join(''));const result=chunks.join('');if(saveHash(result)!==hash)throw Error('Save checksum mismatch');return result;
+}
+function saveText(state){const raw=JSON.stringify(state),packed=packSave(raw);return packed.length<raw.length?packed:raw;}
+function restore(raw){if(typeof raw==='string'){try{raw=unpackSave(raw);if(raw.length>SAVE_LIMIT)return null;raw=JSON.parse(raw);}catch{return null;}}return valid(raw)?copy(raw):null;}
+return {...D,VERSION,money,create,valid,restore,copy,packSave,unpackSave,saveText,hasPerk,trainingCost,efficiency,servicePrice,trainingPreview,train,setPlan,runPlan,buy,recover,advanceTo,calendarPreview,teamName,generateTeams,startSeason,table,ownTeam,recent,sample,competition,targetRole,minutes,valueFactors,evaluateValue,miniParams,miniOutcome,pointerAt,leanAt,simulatedInput,moment,practice,currentMoment,nextMoment,advanceBroadcast,applyMoment,simulateRemaining,grade,fixture,beginMatch,batch,dismissResult,skipOtherPost,leaders,qualification,exitFee,sign,trial,assessment,nextSeason,retire,totals};
 });
