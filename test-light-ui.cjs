@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),E=require('./light-engine');
 const backing=new Map([['next-stop-greatness-career-v4','OLD'],['other-game-save','KEEP']]),elements=new Map(),events={};let failStorage=false;
-function element(q){if(!elements.has(q))elements.set(q,{innerHTML:'',textContent:'',open:false,classList:{add(){},remove(){}},addEventListener(){},querySelector(){return null;},querySelectorAll(){return[];},showModal(){this.open=true;},close(){this.open=false;},click(){},style:{}});return elements.get(q);}
+function element(q){if(!elements.has(q))elements.set(q,{innerHTML:'',textContent:'',open:false,classList:{add(){},remove(){}},addEventListener(n,fn){this[n]=fn;},querySelector(){return null;},querySelectorAll(){return[];},showModal(){this.open=true;},close(){this.open=false;},click(){},style:{}});return elements.get(q);}
 const context={LightCareer:E,HoopsClubs:require('./team-data'),LightMini:{mount:()=>({dispose(){},pause(){},resume(){}})},localStorage:{getItem:k=>backing.get(k)||null,removeItem:k=>backing.delete(k),setItem(k,v){if(failStorage)throw Error('QuotaExceeded');backing.set(k,v);}},document:{querySelector:element,addEventListener:(n,fn)=>events[n]=fn,createElement:()=>element('a'),hidden:false},window:{addEventListener(){},scrollTo(){}},setTimeout:()=>1,clearTimeout(){},Date,Math,URL:{createObjectURL:()=>'',revokeObjectURL(){}},Blob,console};
 let source=fs.readFileSync('light-ui.js','utf8');source=source.replace(/render\(\);\s*\}\)\(\);\s*$/,`window.TestUI={get:()=>S,set:s=>S=s,page:p=>page=p,render,mutate,persist,career,training,assetPage,contractPage,profile,claim,getPaused:()=>paused};render();})();`);vm.runInNewContext(source,context);const U=context.window.TestUI;
 assert(U);assert.equal(backing.get('other-game-save'),'KEEP');assert(!backing.has('next-stop-greatness-career-v4'));assert(element('#content').innerHTML.includes('加入校队'));
@@ -14,3 +14,19 @@ const local=E.copy(U.get()),newer=E.copy(local);newer.wallet+=777;newer.saveRevi
 const clickAction=action=>events.click({preventDefault(){},target:{closest:()=>({dataset:{action}})}});clickAction('pause');assert.equal(U.getPaused(),true);clickAction('practice-exit');assert.equal(U.getPaused(),false,'leaving a paused practice must not freeze the next official game');
 const html=fs.readFileSync('index.html','utf8'),runtime=[...html.matchAll(/<script[^>]+src="([^"?]+)/g)].map(m=>m[1]);assert.deepEqual(runtime,['team-data.js','season-format.js','light-data.js','light-engine.js','light-mini.js','light-ui.js']);for(const file of runtime)assert(fs.existsSync(file));assert(html.includes('lynchrrr'));assert(!html.includes('court.js'));assert(!html.includes('story.js'));assert(!fs.readFileSync('light-ui.js','utf8').includes('游戏币'));
 console.log('PASS · four screen render purity · RMB prices · storage failure rollback · legacy key cleanup scope · results · explicit runtime allowlist');
+
+(async()=>{
+ const key='next-stop-greatness-rmb-v1';
+ // Import failure preserves both current state and the stored bytes; retry commits once.
+ const old=E.copy(U.get());old.saveRevision=JSON.parse(backing.get(key)).saveRevision;U.set(old);
+ const original=JSON.stringify(old),disk=backing.get(key),incoming=E.create({seed:99,name:'导入验证'});
+ await element('#import-save').change({target:{files:[{size:100,text:async()=>JSON.stringify(incoming)}],value:'x'}});
+ failStorage=true;clickAction('confirm');assert.equal(JSON.stringify(U.get()),original);assert.equal(backing.get(key),disk);assert(element('#toast').textContent.includes('导入未完成'));assert(element('#dialog').open);
+ failStorage=false;clickAction('close');
+ await element('#import-save').change({target:{files:[{size:100,text:async()=>JSON.stringify(incoming)}],value:'x'}});clickAction('confirm');
+ assert.equal(U.get().player.name,'导入验证');assert.equal(E.restore(backing.get(key)).player.name,'导入验证');assert(element('#toast').textContent.includes('载入并保存'));
+ const saved=JSON.stringify(U.get());failStorage=true;clickAction('export');assert.equal(JSON.stringify(U.get()),saved,'export must work without a save attempt');failStorage=false;
+ const beforeFailed=JSON.stringify(U.get());failStorage=true;assert.equal(U.persist(),false);assert.equal(JSON.stringify(U.get()),beforeFailed,'failed write must not increment revision');failStorage=false;
+ await element('#import-save').change({target:{files:[{size:10,text:async()=>{throw Error('read');}}],value:'x'}});assert(element('#toast').textContent.includes('没能读取'));
+ console.log('PASS · failed import preserves memory/disk · successful import · export while storage fails · revision rollback · file read failure');
+})().catch(e=>{console.error(e);process.exitCode=1;});
