@@ -1,0 +1,39 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>存档数据库验收</title>
+<style>body{max-width:860px;margin:32px auto;padding:20px;background:#f5f3ed;color:#193d32;font:16px/1.7 system-ui}button{padding:12px 24px}pre{white-space:pre-wrap}</style>
+<h1>存档数据库验收</h1><p>使用独立测试数据库和生成的球员，不读取游戏存档。</p><button id="run">运行存储验收</button><pre id="results" role="status">等待运行</pre>
+<script src="team-data.js"></script><script src="season-format.js"></script><script src="light-data.js"></script><script src="light-engine.js"></script><script src="light-storage.js"></script>
+<script>
+document.querySelector('#run').onclick=async function(){
+ this.disabled=true;const output=document.querySelector('#results');output.textContent='';
+ const E=LightCareer,KEY=LightStorage.KEY,prefix='next-star-storage-test-'+Date.now()+'-',connections=[];
+ let count=0;const assert=(v,message)=>{if(!v)throw Error(message);},equal=(a,b)=>assert(JSON.stringify(a)===JSON.stringify(b),'存档内容不一致');
+ const test=async(name,fn)=>{await fn();count++;output.textContent+='PASS · '+name+'\n';};
+ function storage(raw,limit=Infinity){const data=new Map(raw?[[KEY,raw],['other-game','KEEP']]:[]);return {data,limit,denied:false,getItem(k){if(this.denied)throw new DOMException('blocked','SecurityError');return data.get(k)||null;},setItem(k,v){if(this.denied)throw new DOMException('blocked','SecurityError');const size=[...data].reduce((n,[a,b])=>n+(a===k?0:a.length+b.length),k.length+v.length);if(size>this.limit)throw new DOMException('full','QuotaExceededError');data.set(k,v);}};}
+ function factory(name,local,abortWrites=false){return LightStorage.create({engine:E,storage:local,idb:{open(_,version){
+  const request=indexedDB.open(prefix+name,version);if(!abortWrites){request.addEventListener('success',()=>connections.push(request.result));return request;}
+  // Keep native transaction semantics and abort a real write, including after put succeeds.
+  const proxy={};request.onupgradeneeded=e=>{proxy.result=request.result;proxy.onupgradeneeded?.(e);};request.onerror=e=>proxy.onerror?.(e);
+  request.onsuccess=e=>{const db=request.result;connections.push(db);proxy.result={close:()=>db.close(),set onversionchange(fn){db.onversionchange=fn;},transaction(...args){const tx=db.transaction(...args),original=tx.objectStore.bind(tx);tx.objectStore=name=>{const store=original(name),put=store.put.bind(store);store.put=(...values)=>{const result=put(...values);result.addEventListener('success',()=>tx.abort());return result;};return store;};return tx;}};proxy.onsuccess?.(e);};return proxy;
+ }}});}
+ try{
+  const original=E.create({seed:71});E.beginMatch(original);E.simulateRemaining(original);original.saveRevision=44;
+  let local=storage(JSON.stringify(original));local.limit=[...local.data].reduce((n,[k,v])=>n+k.length+v.length,0);
+  const first=factory('full',local);
+  await test('localStorage 已满时完整迁移，保留比赛、收入和其他游戏数据',async()=>{equal((await first.load()).state,original);assert(local.data.get(KEY).startsWith('NSG-IDB1|'),'未写入迁移标记');assert(local.data.get('other-game')==='KEEP','其他游戏数据被改变');});
+  let state=E.copy(original),revision=original.saveRevision;
+  await test('返回生涯和继续比赛，刷新不重复结算',async()=>{
+   assert(E.dismissResult(state).ok,'不能返回生涯');let result=await first.save(state,revision);assert(result.ok,'不能提交');revision=result.revision;state.saveRevision=revision;
+   equal((await factory('full',local).load()).state,state);const before=E.copy(state);assert(E.beginMatch(state,{skipPlan:true}).ok,'不能继续比赛');E.simulateRemaining(state);result=await first.save(state,revision);assert(result.ok,'续赛提交失败');state.saveRevision=result.revision;revision=result.revision;
+   const restored=(await factory('full',local).load()).state;equal(restored,state);assert(restored.records.length===before.records.length+1,'比赛记录不正确');const saved=JSON.stringify(restored);assert(!E.simulateRemaining(restored).ok,'重复结算');assert(JSON.stringify(restored)===saved,'重复发奖');
+  });
+  await test('localStorage 完全禁用仍能写入并恢复数据库进度',async()=>{const denied=storage();denied.denied=true;const store=factory('denied',denied);await store.load();assert((await store.save(original,0)).ok,'数据库保存失败');const restored=(await factory('denied',denied).load()).state;equal(restored,{...original,saveRevision:1});});
+  await test('两个连接同时提交相同版本，只有一份进度能成功',async()=>{const a=factory('full',local),b=factory('full',local);await Promise.all([a.load(),b.load()]);const x=E.copy(state),y=E.copy(state);x.wallet+=1;y.wallet+=2;const results=await Promise.all([a.save(x,revision),b.save(y,revision)]);assert(results.filter(r=>r.ok).length===1,'并发覆盖');assert(results.filter(r=>r.conflict).length===1,'未阻止旧版本');state=(await a.load()).state;revision=state.saveRevision;});
+  await test('数据库事务在 put 后中止，旧存档与迁移标记不变',async()=>{const failing=factory('full',local,true);await failing.load();const bytes=local.data.get(KEY),s=E.copy(state);s.wallet+=100;let failed=false;try{await failing.save(s,revision);}catch{failed=true;}assert(failed,'中止没有上报失败');assert(local.data.get(KEY)===bytes,'中止后修改了标记');equal((await first.load()).state,state);});
+  await test('首次迁移事务失败，保留原始 JSON 并允许查看和导出',async()=>{const raw=JSON.stringify(original),unmigrated=storage(raw);let failed=false;try{await factory('migration-abort',unmigrated,true).load();}catch(error){failed=true;equal(error.state,original);assert(error.revision===44,'丢失原档版本');}assert(failed,'迁移中止没有上报失败');assert(unmigrated.data.get(KEY)===raw,'原始存档被改变');});
+  await test('清除有版本记录，旧窗口不能复活已清除球员',async()=>{const result=await first.reset(revision);assert(result.ok,'清除失败');const stale=await first.save(state,revision);assert(stale.conflict&&stale.state===null,'旧球员复活');assert((await first.load()).state===null,'清除后仍有旧球员');const fresh=E.create({seed:82});assert((await first.save(fresh,result.revision)).ok,'清除后新建失败');});
+  await test('数据库不可用时兼容 localStorage，迁移标记不会当成新档覆盖',async()=>{const fallback=LightStorage.create({engine:E,storage:storage(JSON.stringify(original)),idb:null});equal((await fallback.load()).state,original);assert((await fallback.save(original,44)).ok,'兼容保存失败');const marked=storage('NSG-IDB1|44'),before=marked.data.get(KEY),unavailable=LightStorage.create({engine:E,storage:marked,idb:null});let failed=false;try{await unavailable.load();}catch{failed=true;}assert(failed,'没有提示数据库不可用');try{await unavailable.save(original,0);}catch{}assert(marked.data.get(KEY)===before,'迁移存档被覆盖');});
+  await test('两种存储都拒绝写入时保留旧字节和版本',async()=>{const denied=storage(JSON.stringify(original),0),fallback=LightStorage.create({engine:E,storage:denied,idb:null});await fallback.load();const before=denied.data.get(KEY);let failed=false;try{await fallback.save(original,44);}catch{failed=true;}assert(failed,'没有上报失败');assert(denied.data.get(KEY)===before,'旧存档被改变');assert(original.saveRevision===44,'提前增加了版本');});
+  output.textContent+='\n全部通过 · '+count+' 组原生 IndexedDB 验收';
+ }catch(error){output.textContent+='FAIL · '+error.stack;}finally{connections.forEach(db=>db.close());this.disabled=false;}
+};
+</script></html>
